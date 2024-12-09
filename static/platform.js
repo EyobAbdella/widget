@@ -19,103 +19,196 @@
 
   const endpointUrl = `http://127.0.0.1:8000/contact-form`;
 
-  fetch(`${endpointUrl}/${uuid}`)
-    .then((response) => {
-      if (!response.ok) {
-        console.log(`Error fetching widget: ${response.statusText}`);
-      }
-      return response.json();
+  function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return params.toString();
+  }
+
+  function submitData(url) {
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(),
     })
-    .then((res) => {
-      widgetDiv.innerHTML = res.html;
-
-      const form = widgetDiv.querySelector("form");
-
-      const fields = Array.from(form.querySelectorAll("input")).map((input) => {
-        return {
-          originalId: input.getAttribute("id"),
-          element: input,
-          isRequired: input.getAttribute("aria-required") === "true",
-          type: input.getAttribute("type"),
-        };
+      .then((response) => response.json())
+      .catch((error) => {
+        console.error(error);
       });
+  }
 
-      form.addEventListener("submit", function (event) {
-        event.preventDefault();
+  function submitFormDataWithFiles(url, formData) {
+    return fetch(`${url}/${uuid}`, {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => response.json())
+      .catch((error) => {
+        console.error("Failed to submit form data:", error);
+      });
+  }
 
-        form
-          .querySelectorAll(".error")
-          .forEach((errorDiv) => (errorDiv.textContent = ""));
+  function handleFormSubmission(form, fields, spam_protection) {
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
 
-        let validationFailed = false;
+      form
+        .querySelectorAll(".error")
+        .forEach((errorDiv) => (errorDiv.textContent = ""));
 
-        fields.forEach(({ originalId, element, isRequired, type }) => {
-          const errorDiv = element.nextElementSibling;
+      let validationFailed = false;
 
-          if (isRequired) {
-            if (type === "file") {
-              if (element.files.length === 0) {
-                validationFailed = true;
-                errorDiv.textContent = "This field is required.";
-              } else {
-                errorDiv.textContent = "";
-              }
-            } else {
-              if (!element.value.trim()) {
-                validationFailed = true;
-                errorDiv.textContent = "This field is required.";
-              } else {
-                errorDiv.textContent = "";
-              }
-            }
-          }
-        });
+      fields.forEach(({ originalId, element, isRequired, type }) => {
+        const errorDiv = element.nextElementSibling;
 
-        if (validationFailed) {
-          return;
-        }
-
-        const formData = new FormData();
-
-        fields.forEach(({ originalId, element, type }) => {
+        if (isRequired) {
           if (type === "file") {
-            const fileInput = element;
-            if (fileInput.files.length > 0) {
-              Array.from(fileInput.files).forEach((file) => {
-                formData.append(originalId, file);
-              });
+            if (element.files.length === 0) {
+              validationFailed = true;
+              errorDiv.textContent = "This field is required.";
+            } else {
+              errorDiv.textContent = "";
             }
           } else {
-            formData.append(originalId, element.value.trim());
+            if (!element.value.trim()) {
+              validationFailed = true;
+              errorDiv.textContent = "This field is required.";
+            } else {
+              errorDiv.textContent = "";
+            }
           }
-        });
-
-        fetch(`${endpointUrl}/${uuid}`, {
-          method: "POST",
-          body: formData,
-        })
-          .then((response) => response.json())
-          .then((res) => {
-            const originalContent = widgetDiv.innerHTML;
-            widgetDiv.innerHTML = "";
-            const messageParagraph = document.createElement("p");
-            messageParagraph.textContent = res.message;
-            messageParagraph.className =
-              "text-xl font-semibold text-black py-6 text-center mt-10";
-            widgetDiv.appendChild(messageParagraph);
-            const closeButton = document.createElement("button");
-            closeButton.textContent = "Close";
-            closeButton.className =
-              "block mx-auto mt-4 px-4 py-2 bg-red-500 text-white rounded";
-            widgetDiv.appendChild(closeButton);
-
-            closeButton.addEventListener("click", () => {
-              widgetDiv.innerHTML = originalContent;
-            });
-          });
+        }
       });
-    })
-    .catch((error) => {
-      console.error("Failed to load widget:", error);
+
+      if (validationFailed) {
+        return;
+      }
+
+      const formData = new FormData();
+
+      fields.forEach(({ originalId, element, type }) => {
+        if (type === "file") {
+          const fileInput = element;
+          if (fileInput.files.length > 0) {
+            Array.from(fileInput.files).forEach((file) => {
+              formData.append(originalId, file);
+            });
+          }
+        } else {
+          formData.append(originalId, element.value.trim());
+        }
+      });
+
+      if (spam_protection) {
+        grecaptcha.ready(function () {
+          grecaptcha
+            .execute("6Lc9TJUqAAAAAALqGIa2Swuw_Ct1LsGpKvzvl9nC", {
+              action: "submit",
+            })
+            .then(function (token) {
+              formData.append("recaptchaToken", token);
+
+              submitFormDataWithFiles(endpointUrl, formData)
+                .then((res) => {
+                  handleFormResponse(res);
+                })
+                .catch((error) => {
+                  console.error("Failed to submit form:", error);
+                });
+            });
+        });
+      } else {
+        submitFormDataWithFiles(endpointUrl, formData)
+          .then((res) => {
+            handleFormResponse(res);
+          })
+          .catch((error) => {
+            console.error("Failed to submit form:", error);
+          });
+      }
     });
+  }
+
+  function handleFormResponse(res) {
+    const originalContent = widgetDiv.innerHTML;
+
+    if (res.action === "success_msg") {
+      widgetDiv.innerHTML = "";
+      const messageParagraph = document.createElement("p");
+      messageParagraph.textContent = res.value;
+      messageParagraph.className =
+        "text-xl font-semibold text-black py-6 text-center mt-10";
+      widgetDiv.appendChild(messageParagraph);
+      const closeButton = document.createElement("button");
+      closeButton.textContent = "Close";
+      closeButton.className =
+        "block mx-auto mt-4 px-4 py-2 bg-red-500 text-white rounded";
+      widgetDiv.appendChild(closeButton);
+
+      closeButton.addEventListener("click", () => {
+        widgetDiv.innerHTML = originalContent;
+      });
+    } else if (res.action === "redirect_url") {
+      window.location.href = res.value;
+    } else if (res.action === "hide_form") {
+      widgetDiv.style.display = "none";
+    }
+  }
+
+  const urlParams = getUrlParams();
+
+  if (urlParams !== "") {
+    console.log(urlParams);
+    submitData(`${endpointUrl}/widget/${uuid}/form/?${urlParams}`)
+      .then((res) => {
+        console.log("URL parameters sent:", res);
+        alert("submitted successfully!");
+      })
+      .catch((error) => {
+        console.error("Failed to send URL parameters:", error);
+      });
+  } else {
+    loadWidget();
+  }
+
+  function loadWidget() {
+    fetch(`${endpointUrl}/${uuid}`)
+      .then((response) => {
+        if (!response.ok) {
+          console.log(`Error fetching widget: ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then((res) => {
+        widgetDiv.innerHTML = res.html;
+        const spam_protection = res.spam_protection;
+
+        const form = widgetDiv.querySelector("form");
+        const fields = Array.from(form.querySelectorAll("input")).map(
+          (input) => {
+            return {
+              originalId: input.getAttribute("id"),
+              element: input,
+              isRequired: input.getAttribute("aria-required") === "true",
+              type: input.getAttribute("type"),
+            };
+          }
+        );
+
+        if (spam_protection) {
+          const recaptchaScript = document.createElement("script");
+          recaptchaScript.src =
+            "https://www.google.com/recaptcha/api.js?render=6Lc9TJUqAAAAAALqGIa2Swuw_Ct1LsGpKvzvl9nC";
+          recaptchaScript.async = true;
+          recaptchaScript.defer = true;
+          document.head.appendChild(recaptchaScript);
+        }
+
+        handleFormSubmission(form, fields, spam_protection);
+      })
+      .catch((error) => {
+        console.error("Failed to load widget:", error);
+      });
+  }
 })();

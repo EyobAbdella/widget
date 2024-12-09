@@ -4,6 +4,12 @@ from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
 )
+from django.conf import settings
+from cryptography.fernet import Fernet
+import base64
+
+ENCRYPTION_KEY = base64.urlsafe_b64encode(settings.SECRET_KEY[:32].encode())
+cipher_suite = Fernet(ENCRYPTION_KEY)
 
 
 class UserManager(BaseUserManager):
@@ -40,3 +46,27 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self) -> str:
         return self.email
+
+
+class GoogleSheetToken(models.Model):
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="google_sheet_token"
+    )
+    encrypted_access_token = models.CharField(max_length=255)
+    encrypted_refresh_token = models.CharField(max_length=255)
+
+    def set_access_token(self, token):
+        self.encrypted_access_token = cipher_suite.encrypt(token.encode()).decode()
+
+    def get_access_token(self):
+        return cipher_suite.decrypt(self.encrypted_access_token.encode()).decode()
+
+    def set_refresh_token(self, token):
+        self.encrypted_refresh_token = cipher_suite.encrypt(token.encode()).decode()
+
+    def get_refresh_token(self):
+        return cipher_suite.decrypt(self.encrypted_refresh_token.encode()).decode()
+
+
+class OAuthSession(models.Model):
+    session_state = models.CharField(max_length=255)
