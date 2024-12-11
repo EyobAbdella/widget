@@ -1,5 +1,7 @@
 (function () {
   const staticFileEndpoint = "";
+  const RECAPTCHA_SITE_KEY = "";
+  const endpointUrl = "";
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = `${staticFileEndpoint}/static/style.css`;
@@ -16,8 +18,6 @@
     console.log("UUID not found in div class.");
     return;
   }
-
-  const endpointUrl = `http://127.0.0.1:8000/contact-form`;
 
   function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
@@ -103,7 +103,7 @@
       if (spam_protection) {
         grecaptcha.ready(function () {
           grecaptcha
-            .execute("6Lc9TJUqAAAAAALqGIa2Swuw_Ct1LsGpKvzvl9nC", {
+            .execute(RECAPTCHA_SITE_KEY, {
               action: "submit",
             })
             .then(function (token) {
@@ -198,8 +198,7 @@
 
         if (spam_protection) {
           const recaptchaScript = document.createElement("script");
-          recaptchaScript.src =
-            "https://www.google.com/recaptcha/api.js?render=6Lc9TJUqAAAAAALqGIa2Swuw_Ct1LsGpKvzvl9nC";
+          recaptchaScript.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
           recaptchaScript.async = true;
           recaptchaScript.defer = true;
           document.head.appendChild(recaptchaScript);
