@@ -1,5 +1,30 @@
 from rest_framework import serializers
-from widget.models import PreFill, WidgetData
+from widget.models import (
+    AdminBrandInfo,
+    EmailNotification,
+    PreFill,
+    SubmittedData,
+    WidgetData,
+    UserBrandInfo,
+)
+
+
+class EmailNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailNotification
+        fields = ["sender_name", "subject", "message", "email"]
+
+
+class AdminBrandInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminBrandInfo
+        fields = ["logo", "name", "redirect_url"]
+
+
+class UserBrandInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserBrandInfo
+        fields = ["logo", "name", "redirect_url"]
 
 
 class WidgetSerializer(serializers.ModelSerializer):
@@ -8,6 +33,9 @@ class WidgetSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
     )
+    email_notification = EmailNotificationSerializer(required=False)
+    admin_brand_info = AdminBrandInfoSerializer(read_only=True)
+    user_brand_info = UserBrandInfoSerializer()
 
     class Meta:
         model = WidgetData
@@ -21,6 +49,10 @@ class WidgetSerializer(serializers.ModelSerializer):
             "post_submit_action",
             "spam_protection",
             "pre_fill",
+            "email_notification",
+            "is_email_notification",
+            "user_brand_info",
+            "admin_brand_info",
         ]
         read_only_fields = ["id", "user"]
 
@@ -32,14 +64,44 @@ class WidgetSerializer(serializers.ModelSerializer):
                 )
         return value
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        admin_brand_info = AdminBrandInfo.objects.first()
+        if admin_brand_info:
+            representation["admin_brand_info"] = AdminBrandInfoSerializer(
+                admin_brand_info
+            ).data
+
+        if not self.context.get("include_email_notification", True):
+            representation.pop("email_notification", None)
+            representation.pop("is_email_notification", None)
+
+        return representation
+
     def create(self, validated_data):
+        email_notification_data = validated_data.pop("email_notification", None)
         pre_fill_data = validated_data.pop("pre_fill", [])
+        user_brand_info_data = validated_data.pop("user_brand_info", None)
         user_id = self.context.get("user_id")
+
+        if user_brand_info_data:
+            user_brand_info = UserBrandInfo.objects.create(**user_brand_info_data)
+            validated_data["user_brand_info"] = user_brand_info
+
         widget = WidgetData.objects.create(user_id=user_id, **validated_data)
+
+        if email_notification_data:
+            email_notification = EmailNotification.objects.create(
+                **email_notification_data
+            )
+            widget.email_notification = email_notification
+            widget.save()
 
         PreFill.objects.bulk_create(
             [PreFill(widget=widget, **item) for item in pre_fill_data]
         )
+
         return widget
 
 
@@ -52,3 +114,9 @@ class PreFillSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         widget_id = self.context.get("widget_id")
         return PreFill.objects.create(widget_id=widget_id, **validated_data)
+
+
+class SubmittedDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubmittedData
+        fields = ["id", "widget", "data"]

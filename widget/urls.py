@@ -8,6 +8,9 @@ router.register("widget", views.WidgetViewSet, basename="Widget")
 prefill_form = NestedDefaultRouter(router, "widget", lookup="widget")
 prefill_form.register("form", views.PreFillFormViewSet, basename="Prefill-Form")
 
+widget_data = NestedDefaultRouter(router, "widget", lookup="widget")
+widget_data.register("data", views.SubmittedDataView, basename="Submitted Data")
+
 urlpatterns = [
     path("<uuid:uuid>", views.WidgetCodeView.as_view()),
     path(
@@ -16,4 +19,4 @@ urlpatterns = [
     ),
 ]
 
-urlpatterns += router.urls + prefill_form.urls
+urlpatterns += router.urls + prefill_form.urls + widget_data.urls

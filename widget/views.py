@@ -1,4 +1,5 @@
 from django.http import HttpResponse
+from rest_framework.generics import ListAPIView
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework import viewsets
@@ -8,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from widget.utils import create_sheet, write_sheet
-from .serializers import WidgetSerializer
+from .serializers import SubmittedDataSerializer, WidgetSerializer
 from .models import PreFill, SubmittedData, WidgetData, WidgetFile
 import csv
 import requests
@@ -17,7 +18,11 @@ import requests
 class WidgetCodeView(APIView):
     def get(self, request, uuid):
         queryset = WidgetData.objects.get(id=uuid)
-        serializer = WidgetSerializer(queryset)
+
+        serializer = WidgetSerializer(
+            queryset, context={"include_email_notification": False}
+        )
+
         return Response(serializer.data)
 
     def post(self, request, uuid):
@@ -108,13 +113,14 @@ class WidgetCodeView(APIView):
                         [email_receiver.get("value")],
                         fail_silently=False,
                     )
-                send_mail(
-                    "Submitted Data",
-                    f"{user_data}",
-                    "widget@contact.com",
-                    [widget.user],
-                    fail_silently=False,
-                )
+                if widget.is_email_notification:
+                    send_mail(
+                        widget.email_notification.subject,  # subject
+                        f"{widget.email_notification.message} \n{user_data}",  # message
+                        widget.email_notification.sender_name,  # sender name
+                        widget.email_notification.email,
+                        fail_silently=False,
+                    )
                 data = {item["label"]: item["value"] for item in field_values}
                 SubmittedData.objects.create(widget_id=uuid, data=data)
                 if widget.post_submit_action == WidgetData.SUCCESS_MESSAGE:
@@ -245,3 +251,24 @@ class PreFillFormViewSet(viewsets.ViewSet):
             return Response({"error": "Widget not found."}, status=404)
 
         return Response("", status=200)
+
+
+class SubmittedDataView(viewsets.ModelViewSet):
+    http_method_names = ["get"]
+    serializer_class = SubmittedDataSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        widget_id = self.kwargs["widget_pk"]
+        return SubmittedData.objects.filter(widget__id=widget_id)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        total_submissions = queryset.count()
+
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(
+            {"total_submissions": total_submissions, "submissions": serializer.data}
+        )
