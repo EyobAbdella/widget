@@ -18,7 +18,6 @@ import requests
 class WidgetCodeView(APIView):
     def get(self, request, uuid):
         queryset = WidgetData.objects.get(id=uuid)
-
         serializer = WidgetSerializer(
             queryset, context={"include_email_notification": False}
         )
@@ -152,7 +151,8 @@ class WidgetViewSet(ModelViewSet):
     serializer_class = WidgetSerializer
 
     def get_queryset(self):
-        return WidgetData.objects.filter(user=self.request.user)
+        queryset = WidgetData.objects.filter(user=self.request.user)
+        return queryset
 
     def get_serializer_context(self):
         return {"user_id": self.request.user.id}

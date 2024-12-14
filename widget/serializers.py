@@ -28,6 +28,7 @@ class UserBrandInfoSerializer(serializers.ModelSerializer):
 
 
 class WidgetSerializer(serializers.ModelSerializer):
+    total_submissions = serializers.SerializerMethodField()
     pre_fill = serializers.ListField(
         child=serializers.DictField(child=serializers.CharField()),
         write_only=True,
@@ -53,8 +54,13 @@ class WidgetSerializer(serializers.ModelSerializer):
             "is_email_notification",
             "user_brand_info",
             "admin_brand_info",
+            "total_submissions",
         ]
-        read_only_fields = ["id", "user"]
+        read_only_fields = [
+            "id",
+            "user",
+            "total_submissions",
+        ]
 
     def validate_pre_fill(self, value):
         for item in value:
@@ -78,6 +84,9 @@ class WidgetSerializer(serializers.ModelSerializer):
             representation.pop("is_email_notification", None)
 
         return representation
+
+    def get_total_submissions(self, obj):
+        return SubmittedData.objects.filter(widget=obj).count()
 
     def create(self, validated_data):
         email_notification_data = validated_data.pop("email_notification", None)
