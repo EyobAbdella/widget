@@ -30,8 +30,8 @@ class AdminBrandInfo(models.Model):
 
 
 class UserBrandInfo(models.Model):
-    logo = models.ImageField(upload_to="user/brand_logo")
-    name = models.CharField(max_length=255)
+    logo = models.ImageField(upload_to="user/brand_logo", blank=True, null=True)
+    name = models.CharField(max_length=255, null=True, blank=True)
     redirect_url = models.URLField(null=True, blank=True)
 
 
@@ -60,7 +60,7 @@ class WidgetData(models.Model):
         EmailNotification, on_delete=models.CASCADE, null=True, blank=True
     )
     is_email_notification = models.BooleanField(default=False)
-    user_brand_info = models.OneToOneField(UserBrandInfo, on_delete=models.CASCADE)
+    user_brand_info = models.OneToOneField(UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True)
 
 
 class WidgetFile(models.Model):
