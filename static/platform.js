@@ -185,13 +185,16 @@
         const spam_protection = res.spam_protection;
 
         const form = widgetDiv.querySelector("form");
-        const fields = Array.from(form.querySelectorAll("input")).map(
-          (input) => {
+        const fields = Array.from(form.querySelectorAll("input, textarea")).map(
+          (element) => {
             return {
-              originalId: input.getAttribute("id"),
-              element: input,
-              isRequired: input.getAttribute("aria-required") === "true",
-              type: input.getAttribute("type"),
+              originalId: element.getAttribute("id"),
+              element: element,
+              isRequired: element.getAttribute("aria-required") === "true",
+              type:
+                element.tagName.toLowerCase() === "textarea"
+                  ? "textarea"
+                  : element.getAttribute("type"),
             };
           }
         );

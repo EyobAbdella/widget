@@ -6,9 +6,9 @@ from django.core.validators import validate_email
 
 
 class EmailNotification(models.Model):
-    sender_name = models.CharField(max_length=255)
-    subject = models.CharField(max_length=255)
-    message = models.TextField()
+    sender_name = models.CharField(max_length=255, null=True, blank=True)
+    subject = models.CharField(max_length=255, null=True, blank=True)
+    message = models.TextField(null=True, blank=True)
     email = models.JSONField()
 
     def clean(self):
