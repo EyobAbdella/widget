@@ -60,7 +60,9 @@ class WidgetData(models.Model):
         EmailNotification, on_delete=models.CASCADE, null=True, blank=True
     )
     is_email_notification = models.BooleanField(default=False)
-    user_brand_info = models.OneToOneField(UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True)
+    user_brand_info = models.OneToOneField(
+        UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True
+    )
 
 
 class WidgetFile(models.Model):
@@ -85,3 +87,45 @@ class PreFill(models.Model):
     )
     field_id = models.CharField(max_length=100)
     parameter_name = models.CharField(max_length=255)
+
+
+class SubmitButton(models.Model):
+    LEFT = "LEFT"
+    CENTER = "CENTER"
+    RIGHT = "RIGHT"
+    ALIGNMENT_CHOICES = [(LEFT, "left"), (CENTER, "center"), (RIGHT, "right")]
+    text = models.CharField(max_length=100)
+    alignment = models.TextField(default=LEFT, max_length=6, choices=ALIGNMENT_CHOICES)
+
+
+class FormTemplate(models.Model):
+    INLINE = "INLINE"
+    FLOATING_PANEL = "FLOATING_PANEL"
+
+    EMBED_TYPE_CHOICES = [(INLINE, "inline"), (FLOATING_PANEL, "floating_panel")]
+
+    DARK = "DARK"
+    LIGHT = "LIGHT"
+    COLOR_SCHEMA_CHOICES = [(DARK, "dark"), (LIGHT, "light")]
+
+    image = models.ImageField(upload_to="template")
+    fields = models.JSONField(default=list)
+    header_enabled = models.BooleanField()
+    header_title = models.CharField(max_length=255, null=True, blank=True)
+    header_caption = models.TextField(null=True, blank=True)
+    submit_button = models.OneToOneField(SubmitButton, on_delete=models.CASCADE)
+    footer = models.TextField(null=True, blank=True)
+    embed_type = models.CharField(
+        max_length=14, default=INLINE, choices=EMBED_TYPE_CHOICES
+    )
+    color_scheme = models.CharField(
+        max_length=5, default=LIGHT, choices=COLOR_SCHEMA_CHOICES
+    )
+    accent_color = models.CharField(max_length=50)
+    bg_color = models.CharField(max_length=50)
+
+    def save(self, *args, **kwargs):
+        if not self.header_enabled:
+            self.header_title = ""
+            self.header_caption = ""
+        super().save(*args, **kwargs)

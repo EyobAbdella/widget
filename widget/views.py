@@ -1,5 +1,4 @@
 from django.http import HttpResponse
-from rest_framework.generics import ListAPIView
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework import viewsets
@@ -8,9 +7,14 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from widget.utils import create_sheet, write_sheet
-from .serializers import SubmittedDataSerializer, WidgetSerializer
-from .models import PreFill, SubmittedData, WidgetData, WidgetFile
+from .permissions import IsAdminOrReadOnly
+from .utils import create_sheet, write_sheet
+from .serializers import (
+    FormTemplateSerializer,
+    SubmittedDataSerializer,
+    WidgetSerializer,
+)
+from .models import FormTemplate, PreFill, SubmittedData, WidgetData, WidgetFile
 import csv
 import requests
 
@@ -272,3 +276,9 @@ class SubmittedDataView(viewsets.ModelViewSet):
         return Response(
             {"total_submissions": total_submissions, "submissions": serializer.data}
         )
+
+
+class FormTemplateViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAdminOrReadOnly]
+    queryset = FormTemplate.objects.all()
+    serializer_class = FormTemplateSerializer

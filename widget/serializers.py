@@ -2,7 +2,9 @@ from rest_framework import serializers
 from widget.models import (
     AdminBrandInfo,
     EmailNotification,
+    FormTemplate,
     PreFill,
+    SubmitButton,
     SubmittedData,
     WidgetData,
     UserBrandInfo,
@@ -129,3 +131,57 @@ class SubmittedDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubmittedData
         fields = ["id", "widget", "data"]
+
+
+class SubmitButtonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubmitButton
+        fields = ["text", "alignment"]
+
+
+class FormTemplateSerializer(serializers.ModelSerializer):
+    submit_button = SubmitButtonSerializer()
+
+    class Meta:
+        model = FormTemplate
+        fields = [
+            "id",
+            "image",
+            "fields",
+            "header_enabled",
+            "header_title",
+            "header_caption",
+            "submit_button",
+            "footer",
+            "embed_type",
+            "color_scheme",
+            "accent_color",
+            "bg_color",
+        ]
+
+    def create(self, validated_data):
+        submit_button_data = validated_data.pop("submit_button")
+        submit_button = SubmitButton.objects.create(**submit_button_data)
+        return FormTemplate.objects.create(
+            submit_button=submit_button, **validated_data
+        )
+
+    def update(self, instance, validated_data):
+        submit_button_data = validated_data.pop("submit_button", None)
+
+        instance = super().update(instance, validated_data)
+
+        if submit_button_data:
+            submit_button_serializer = SubmitButtonSerializer(
+                instance.submit_button, data=submit_button_data
+            )
+            submit_button_serializer.is_valid(raise_exception=True)
+            submit_button_serializer.save()
+
+        header_enabled = validated_data.get("header_enabled", instance.header_enabled)
+        if not header_enabled:
+            instance.header_title = ""
+            instance.header_caption = ""
+
+        instance.save()
+        return instance

@@ -4,6 +4,7 @@ from . import views
 
 router = DefaultRouter()
 router.register("widget", views.WidgetViewSet, basename="Widget")
+router.register("template", views.FormTemplateViewSet)
 
 prefill_form = NestedDefaultRouter(router, "widget", lookup="widget")
 prefill_form.register("form", views.PreFillFormViewSet, basename="Prefill-Form")
