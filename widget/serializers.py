@@ -59,12 +59,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "admin_brand_info",
             "total_submissions",
         ]
-        read_only_fields = [
-            "id",
-            "user",
-            "total_submissions",
-            "sheet_id"        
-        ]
+        read_only_fields = ["id", "user", "total_submissions", "sheet_id"]
 
     def validate_pre_fill(self, value):
         for item in value:
@@ -116,6 +111,45 @@ class WidgetSerializer(serializers.ModelSerializer):
         )
 
         return widget
+
+    def update(self, instance, validated_data):
+        email_notification_data = validated_data.pop("email_notification", None)
+        user_brand_info_data = validated_data.pop("user_brand_info", None)
+        pre_fill_data = validated_data.pop("pre_fill", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if email_notification_data:
+            if instance.email_notification:
+                email_notification = instance.email_notification
+                for attr, value in email_notification_data.items():
+                    setattr(email_notification, attr, value)
+                email_notification.save()
+            else:
+                email_notification = EmailNotification.objects.create(
+                    **email_notification_data
+                )
+                instance.email_notification = email_notification
+
+        if user_brand_info_data:
+            if instance.user_brand_info:
+                user_brand_info = instance.user_brand_info
+                for attr, value in user_brand_info_data.items():
+                    setattr(user_brand_info, attr, value)
+                user_brand_info.save()
+            else:
+                user_brand_info = UserBrandInfo.objects.create(**user_brand_info_data)
+                instance.user_brand_info = user_brand_info
+
+        if pre_fill_data is not None:
+            instance.pre_fill.all().delete()
+            PreFill.objects.bulk_create(
+                [PreFill(widget=instance, **item) for item in pre_fill_data]
+            )
+
+        instance.save()
+        return instance
 
 
 class PreFillSerializer(serializers.ModelSerializer):
