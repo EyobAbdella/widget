@@ -44,6 +44,12 @@ jobs:
         script: |
           echo "Starting deployment"
           
+          # Ensure the directory exists
+          if [ ! -d "/django-workspace/contact-widget-backend" ]; then
+            echo "Directory not found, exiting."
+            exit 1
+          fi
+          
           # Navigate to the correct directory
           cd /django-workspace/contact-widget-backend
           
