@@ -84,4 +84,7 @@ class GoogleAPI(PublicAPI):
 from django.http import HttpResponse
 def testing(request):
     # TODO: Add tests here. For now, we're just returning a simple response.
+    # Replace this with actual tests.
+    print("Testing...")  # for demonstration purposes only.
+    print("Test completed successfully.")  # for demonstration purposes only.
     return HttpResponse("testing")
