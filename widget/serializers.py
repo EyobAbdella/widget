@@ -46,6 +46,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "html",
+            "sheet_id",
             "widget_fields",
             "redirect_url",
             "success_msg",
@@ -62,6 +63,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "total_submissions",
+            "sheet_id"        
         ]
 
     def validate_pre_fill(self, value):
