@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import GoogleRedirectAPI, GoogleAPI, testing
+from .views import GoogleRedirectAPI, GoogleAPI
 
 urlpatterns = [
     path("google-oauth2/callback/", GoogleAPI.as_view()),
@@ -8,5 +8,5 @@ urlpatterns = [
         GoogleRedirectAPI.as_view(),
         name="google-oauth2-redirect",
     ),
-    path("testing/", testing, name="testing"),  # for testing purposes only
+    # path("testing/", testing, name="testing"),  # for testing purposes only
 ]
