@@ -1,7 +1,7 @@
 (function () {
-  const staticFileEndpoint = "";
-  const RECAPTCHA_SITE_KEY = "";
-  const endpointUrl = "";
+ const staticFileEndpoint = "https://contact-admin.myfindata.com";
+  const RECAPTCHA_SITE_KEY = "6LdL15YqAAAAAJADkgf9Nq9NGS88QA2WFcRtzWmu";
+  const endpointUrl = "https://contact-admin.myfindata.com/contact-form";
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = `${staticFileEndpoint}/static/style.css`;
