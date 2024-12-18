@@ -44,12 +44,21 @@ jobs:
         script: |
           echo "Starting deployment"
           
-          # Navigate to the correct directory
+          # Navigate to the project directory
           cd /django-workspace/contact-widget-backend
           
-          # Ensure the repository is up to date
+          # Set up SSH for authentication
+          eval $(ssh-agent -s)
+          ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          
+          # Ensure the branch is checked out
           git fetch origin
-          git reset --hard origin/main
+          git checkout main
+          
+          # Pull the latest changes
+          git pull origin main
           
           # Activate virtual environment
           source /django-workspace/env/bin/activate
