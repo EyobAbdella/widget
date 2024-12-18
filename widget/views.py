@@ -46,7 +46,7 @@ class WidgetCodeView(APIView):
                 result = response.json()
 
             if not widget.spam_protection or result.get("success"):
-                widget_fields = widget.widget_fields
+                widget_fields = json.loads(widget.widget_fields)
 
                 field_values = []
                 errors = {}
