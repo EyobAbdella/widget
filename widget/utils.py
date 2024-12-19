@@ -56,7 +56,6 @@ def write_sheet(user, sheet_id, values):
         )
         .execute()
     )
-
     return result
 
 

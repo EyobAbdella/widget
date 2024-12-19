@@ -17,14 +17,13 @@ from .serializers import (
 from .models import FormTemplate, PreFill, SubmittedData, WidgetData, WidgetFile
 import csv
 import requests
-import json
 
 
 class WidgetCodeView(APIView):
     def get(self, request, uuid):
         queryset = WidgetData.objects.get(id=uuid)
         serializer = WidgetSerializer(
-            queryset, context={"include_email_notification": False}
+            queryset, context={"include_email_notification": False, "request": request}
         )
 
         return Response(serializer.data)
@@ -47,7 +46,7 @@ class WidgetCodeView(APIView):
                 result = response.json()
 
             if not widget.spam_protection or result.get("success"):
-
+                widget_fields = widget.widget_fields
                 field_values = []
                 errors = {}
 
@@ -68,7 +67,7 @@ class WidgetCodeView(APIView):
                                 widget_file = WidgetFile.objects.create(
                                     widget=widget, file=uploaded_files[0]
                                 )
-                                value = widget_file.file.url
+                                value = request.build_absolute_uri(widget_file.file.url)
                     elif field_type:
                         value = request.data.get(field_id, "").strip()
 
@@ -94,6 +93,7 @@ class WidgetCodeView(APIView):
                     )
                 if not widget.sheet_id:
                     sheet_id = create_sheet(widget.user)
+
                     write_sheet(
                         widget.user,
                         sheet_id,
@@ -159,7 +159,7 @@ class WidgetViewSet(ModelViewSet):
         return queryset
 
     def get_serializer_context(self):
-        return {"user_id": self.request.user.id}
+        return {"user_id": self.request.user.id, "request": self.request}
 
 
 class DownloadSubmittedDataView(APIView):

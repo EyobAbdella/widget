@@ -1,7 +1,7 @@
 (function () {
- const staticFileEndpoint = "https://widgetcontact.myfindata.com";
+  const staticFileEndpoint = "https://widgetcontact.myfindata.com";
   const RECAPTCHA_SITE_KEY = "6LdL15YqAAAAAJADkgf9Nq9NGS88QA2WFcRtzWmu";
-  const endpointUrl = "https://widgetcontact.myfindata.com/contact-form";
+  const endpointUrl = "http://127.0.0.1:8000/contact-form";
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = `${staticFileEndpoint}/static/style.css`;
@@ -53,10 +53,6 @@
     form.addEventListener("submit", function (event) {
       event.preventDefault();
 
-      form
-        .querySelectorAll(".error")
-        .forEach((errorDiv) => (errorDiv.textContent = ""));
-
       let validationFailed = false;
 
       fields.forEach(({ originalId, element, isRequired, type }) => {
@@ -71,7 +67,24 @@
               errorDiv.textContent = "";
             }
           } else {
-            if (!element.value.trim()) {
+            if (type === "choice" || type === "multiple_choice") {
+              const choice = element.querySelectorAll(
+                'input[type="radio"], input[type="checkbox"]'
+              );
+              let isChecked = false;
+              for (const selectedChoice of choice) {
+                if (selectedChoice.checked) {
+                  isChecked = true;
+                  break;
+                }
+              }
+              if (isChecked) {
+                errorDiv.textContent = "";
+              } else {
+                validationFailed = true;
+                errorDiv.textContent = "This field is required.";
+              }
+            } else if (!element.value.trim()) {
               validationFailed = true;
               errorDiv.textContent = "This field is required.";
             } else {
@@ -95,6 +108,22 @@
               formData.append(originalId, file);
             });
           }
+        } else if (type == "choice") {
+          const selectedChoice = element.querySelector(
+            'input[name="choice"]:checked'
+          );
+          formData.append(
+            originalId,
+            selectedChoice ? selectedChoice.value : null
+          );
+        } else if (type == "multiple_choice") {
+          const choices = element.querySelectorAll(
+            'input[name="multiple-choice"]:checked'
+          );
+          formData.append(
+            originalId,
+            Array.from(choices).map((checkbox) => checkbox.value)
+          );
         } else {
           formData.append(originalId, element.value.trim());
         }
@@ -159,10 +188,8 @@
   const urlParams = getUrlParams();
 
   if (urlParams !== "") {
-    console.log(urlParams);
     submitData(`${endpointUrl}/widget/${uuid}/form/?${urlParams}`)
       .then((res) => {
-        console.log("URL parameters sent:", res);
         alert("submitted successfully!");
       })
       .catch((error) => {
@@ -182,22 +209,50 @@
       })
       .then((res) => {
         widgetDiv.innerHTML = res.html;
+        const adminData = res.admin_brand_info;
+        const userData = res.user_brand_info;
+
+        const adminBrandingLink = document.querySelector("#admin_branding a");
+        const adminBrandingImage = document.querySelector(
+          "#admin_branding img"
+        );
+        const adminBrandingName = document.querySelector(
+          "#admin_branding_name"
+        );
+
+        adminBrandingLink.href = adminData.redirect_url || "#";
+        adminBrandingImage.src = adminData.logo || "";
+        adminBrandingImage.alt = adminData.name || "";
+        adminBrandingName.textContent = adminData.name || "";
+
+        const userBrandingLink = document.querySelector("#user_branding a");
+        const userBrandingImage = document.querySelector("#user_branding img");
+        const userBrandingName = document.querySelector("#user_branding_name");
+
+        userBrandingLink.href = userData.redirect_url || "#";
+        userBrandingImage.src = userData.logo || "";
+        userBrandingImage.alt = userData.name || "";
+        userBrandingName.textContent = userData.name || "";
+
         const spam_protection = res.spam_protection;
 
         const form = widgetDiv.querySelector("form");
-        const fields = Array.from(form.querySelectorAll("input, textarea")).map(
-          (element) => {
-            return {
-              originalId: element.getAttribute("id"),
-              element: element,
-              isRequired: element.getAttribute("aria-required") === "true",
-              type:
-                element.tagName.toLowerCase() === "textarea"
-                  ? "textarea"
-                  : element.getAttribute("type"),
-            };
-          }
-        );
+        const fields = Array.from(
+          form.querySelectorAll(
+            "[data-type='multiple_choice'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea"
+          )
+        ).map((element) => {
+          return {
+            originalId: element.getAttribute("id"),
+            element: element,
+            isRequired: element.getAttribute("aria-required") === "true",
+            type:
+              element.getAttribute("data-type") ||
+              (element.tagName.toLowerCase() === "textarea"
+                ? "textarea"
+                : element.getAttribute("type")),
+          };
+        });
 
         if (spam_protection) {
           const recaptchaScript = document.createElement("script");

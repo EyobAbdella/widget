@@ -49,6 +49,9 @@ class WidgetData(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="widgets"
     )
+    name = models.CharField(max_length=255)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
     html = models.TextField()
     widget_fields = models.JSONField(default=list)
     sheet_id = models.CharField(max_length=255, blank=True, null=True)

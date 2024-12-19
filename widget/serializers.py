@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import serializers
 from widget.models import (
     AdminBrandInfo,
@@ -18,9 +19,20 @@ class EmailNotificationSerializer(serializers.ModelSerializer):
 
 
 class AdminBrandInfoSerializer(serializers.ModelSerializer):
+    logo = serializers.SerializerMethodField()
+
     class Meta:
         model = AdminBrandInfo
         fields = ["logo", "name", "redirect_url"]
+
+    def get_logo(self, obj):
+        request = self.context.get("request")
+        if obj.logo:
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            else:
+                return f"{settings.MEDIA_URL}{obj.logo.url}"
+        return None
 
 
 class UserBrandInfoSerializer(serializers.ModelSerializer):
@@ -45,6 +57,9 @@ class WidgetSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
+            "name",
+            "title",
+            "description",
             "html",
             "sheet_id",
             "widget_fields",
@@ -71,11 +86,10 @@ class WidgetSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-
         admin_brand_info = AdminBrandInfo.objects.first()
         if admin_brand_info:
             representation["admin_brand_info"] = AdminBrandInfoSerializer(
-                admin_brand_info
+                admin_brand_info, context={"request": self.context.get("request")}
             ).data
 
         if not self.context.get("include_email_notification", True):

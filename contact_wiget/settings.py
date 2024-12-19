@@ -2,7 +2,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 import os
-dotenv_path = '/django-workspace/contact-widget-backend/.env'
+
+dotenv_path = "/django-workspace/contact-widget-backend/.env"
 load_dotenv(dotenv_path)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -131,6 +132,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("JWT",),
     "ACCESS_TOKEN_LIFETIME": timedelta(days=10),
+    # "TOKEN_OBTAIN_PAIR_SERIALIZER": "core.serializers.CustomTokenObtainPairSerializer",
+    # "TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainPairSerializer",
+    "TOKEN_OBTAIN_SERIALIZER": "core.serializers.CustomTokenObtainSerializer",
 }
 
 
@@ -151,8 +155,6 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 GOOGLE_OAUTH2_CLIENT_ID = os.environ.get("GOOGLE_OAUTH2_CLIENT_ID")
 GOOGLE_OAUTH2_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH2_CLIENT_SECRET")
 GOOGLE_OAUTH2_PROJECT_ID = os.environ.get("GOOGLE_OAUTH2_PROJECT_ID")
-
-# REDIRECT_URL = "http://127.0.0.1:8000/oauth/google-oauth2/callback/"
-REDIRECT_URL = "https://widgetcontact.myfindata.com/oauth/google-oauth2/callback/"
+REDIRECT_URL = "http://127.0.0.1:8000/oauth/google-oauth2/callback/"
 RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY")
 RECAPTCHA_SECRET_KEY = os.environ.get("RECAPTCHA_SECRET_KEY")
