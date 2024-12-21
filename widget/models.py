@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.files.storage import default_storage
 from uuid import uuid4
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -35,6 +36,10 @@ class UserBrandInfo(models.Model):
     redirect_url = models.URLField(null=True, blank=True)
 
 
+def get_script_file_path(instance):
+    return f"javascript/{instance.id}.js"
+
+
 class WidgetData(models.Model):
     SUCCESS_MESSAGE = "MSG"
     REDIRECT_TO_URL = "REDIRECT_URL"
@@ -53,6 +58,7 @@ class WidgetData(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     html = models.TextField()
+    script = models.TextField()
     widget_fields = models.JSONField(default=list)
     sheet_id = models.CharField(max_length=255, blank=True, null=True)
     post_submit_action = models.CharField(max_length=20, choices=POST_SUBMIT_ACTION)
@@ -66,6 +72,20 @@ class WidgetData(models.Model):
     user_brand_info = models.OneToOneField(
         UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True
     )
+
+    def save(self, *args, **kwargs):
+        file_path = get_script_file_path(self)
+
+        if self.script:
+            with default_storage.open(file_path, "w") as script_file:
+                script_file.write(self.script)
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        file_path = get_script_file_path(self)
+        if default_storage.exists(file_path):
+            default_storage.delete(file_path)
+        super().delete(*args, **kwargs)
 
 
 class WidgetFile(models.Model):

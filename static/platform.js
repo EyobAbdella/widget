@@ -208,6 +208,18 @@
         return response.json();
       })
       .then((res) => {
+        const scriptUrl = `${staticFileEndpoint}/media/javascript/${uuid}.js`;
+        const script = document.createElement("script");
+        script.src = scriptUrl;
+        script.async = true;
+        script.onload = function () {
+          console.log(`Script ${uuid} loaded successfully.`);
+        };
+        script.onerror = function () {
+          console.error(`Failed to load script ${uuid}`);
+        };
+        document.body.appendChild(script);
+
         widgetDiv.innerHTML = res.html;
         const adminData = res.admin_brand_info;
         const userData = res.user_brand_info;

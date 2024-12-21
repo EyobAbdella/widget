@@ -61,6 +61,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "html",
+            "script",
             "sheet_id",
             "widget_fields",
             "redirect_url",
