@@ -1,10 +1,12 @@
 (function () {
   const staticEndpoint = "https://widgetcontact.myfindata.com/static/style.css";
+  //   const staticEndpoint = "http://localhost:8000/static/style.css";
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = staticEndpoint;
   document.head.appendChild(link);
   const endpointURL = "https://widgetcontact.myfindata.com";
+  //   const endpointURL = "http://localhost:8000";
   const widgetDiv = document.querySelector('div[class^="clicflo-widget-"]');
   const uuid = widgetDiv.className.split("clicflo-widget-")[1];
   const cardHolder = document.createElement("div");
@@ -14,13 +16,12 @@
   widgetDiv.appendChild(cardHolder);
 
   const renderFeatureList = (features, appearance) => {
-    console.log(features[0]);
     return features
       .map(
         (feature) => `
         <li style="color: ${appearance.color}; font-size: ${
           appearance.font
-        }px; display: flex; align-items: center;">
+        }px;" class="flex">
   <span style="margin-right: 8px;">
       ${feature.icon === "CH" ? "✔" : feature.icon === "CR" ? "❌" : ""}
   </span>
@@ -109,7 +110,7 @@
     }</p>
             ${
               item.features
-                ? `<ul class="mt-4 space-y-2 text-xs text-gray-700"> ${renderFeatureList(
+                ? `<ul class="mt-4 space-y-2 text-xs text-gray-700 flex flex-col items-start mx-auto w-fit"> ${renderFeatureList(
                     item.features,
                     appearance.feature
                   )}</ul>`
