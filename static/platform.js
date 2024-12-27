@@ -53,11 +53,14 @@
     form.addEventListener("submit", function (event) {
       event.preventDefault();
 
+      form
+        .querySelectorAll(".error")
+        .forEach((errorDiv) => (errorDiv.textContent = ""));
+
       let validationFailed = false;
 
       fields.forEach(({ originalId, element, isRequired, type }) => {
         const errorDiv = element.nextElementSibling;
-
         if (isRequired) {
           if (type === "file") {
             if (element.files.length === 0) {
@@ -67,7 +70,11 @@
               errorDiv.textContent = "";
             }
           } else {
-            if (type === "choice" || type === "multiple_choice") {
+            if (
+              type === "scale" ||
+              type === "choice" ||
+              type === "multiple_choice"
+            ) {
               const choice = element.querySelectorAll(
                 'input[type="radio"], input[type="checkbox"]'
               );
@@ -108,6 +115,11 @@
               formData.append(originalId, file);
             });
           }
+        } else if (type == "scale") {
+          const scaleInput = element.querySelector(
+            'input[type="radio"]:checked'
+          );
+          formData.append(originalId, scaleInput.value);
         } else if (type == "choice") {
           const selectedChoice = element.querySelector(
             'input[name="choice"]:checked'
@@ -203,12 +215,12 @@
     fetch(`${endpointUrl}/${uuid}`)
       .then((response) => {
         if (!response.ok) {
-          console.log(`Error fetching widget: ${response.statusText}`);
+          console.log(`Error fetching widget: ${response}`);
         }
         return response.json();
       })
       .then((res) => {
-        const scriptUrl = `${staticFileEndpoint}/media/javascript/${uuid}.js`;
+        const scriptUrl = `${endpointUrl}/script/${uuid}.js`;
         const script = document.createElement("script");
         script.src = scriptUrl;
         script.async = true;
@@ -231,7 +243,6 @@
         const adminBrandingName = document.querySelector(
           "#admin_branding_name"
         );
-
         adminBrandingLink.href = adminData.redirect_url || "#";
         adminBrandingImage.src = adminData.logo || "";
         adminBrandingImage.alt = adminData.name || "";
@@ -251,7 +262,7 @@
         const form = widgetDiv.querySelector("form");
         const fields = Array.from(
           form.querySelectorAll(
-            "[data-type='multiple_choice'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea"
+            "[role='radiogroup'], [data-type='multiple_choice'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea"
           )
         ).map((element) => {
           return {
@@ -273,7 +284,6 @@
           recaptchaScript.defer = true;
           document.head.appendChild(recaptchaScript);
         }
-
         handleFormSubmission(form, fields, spam_protection);
       })
       .catch((error) => {

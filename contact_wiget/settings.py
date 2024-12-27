@@ -132,8 +132,6 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("JWT",),
     "ACCESS_TOKEN_LIFETIME": timedelta(days=10),
-    # "TOKEN_OBTAIN_PAIR_SERIALIZER": "core.serializers.CustomTokenObtainPairSerializer",
-    # "TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainPairSerializer",
     "TOKEN_OBTAIN_SERIALIZER": "core.serializers.CustomTokenObtainSerializer",
 }
 

@@ -36,10 +36,6 @@ class UserBrandInfo(models.Model):
     redirect_url = models.URLField(null=True, blank=True)
 
 
-def get_script_file_path(instance):
-    return f"javascript/{instance.id}.js"
-
-
 class WidgetData(models.Model):
     SUCCESS_MESSAGE = "MSG"
     REDIRECT_TO_URL = "REDIRECT_URL"
@@ -58,7 +54,7 @@ class WidgetData(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     html = models.TextField()
-    script = models.TextField()
+    script = models.TextField(null=True, blank=True)
     widget_fields = models.JSONField(default=list)
     sheet_id = models.CharField(max_length=255, blank=True, null=True)
     post_submit_action = models.CharField(max_length=20, choices=POST_SUBMIT_ACTION)
@@ -72,20 +68,6 @@ class WidgetData(models.Model):
     user_brand_info = models.OneToOneField(
         UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True
     )
-
-    def save(self, *args, **kwargs):
-        file_path = get_script_file_path(self)
-
-        if self.script:
-            with default_storage.open(file_path, "w") as script_file:
-                script_file.write(self.script)
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        file_path = get_script_file_path(self)
-        if default_storage.exists(file_path):
-            default_storage.delete(file_path)
-        super().delete(*args, **kwargs)
 
 
 class WidgetFile(models.Model):
@@ -152,3 +134,175 @@ class FormTemplate(models.Model):
             self.header_title = ""
             self.header_caption = ""
         super().save(*args, **kwargs)
+
+
+from django.db import models
+from django.conf import settings
+from uuid import uuid4
+
+
+class Button(models.Model):
+    text = models.CharField(max_length=100)
+    link = models.URLField(null=True, blank=True)
+    caption = models.TextField(null=True, blank=True)
+
+
+class Price(models.Model):
+    CURRENCY_USD = "USD"
+    CURRENCY_EURO = "EUR"
+    PREFIX_NONE = "NONE"
+    PREFIX_FROM = "FROM"
+    PREFIX_UP_TO = "UP_TO"
+    PREFIX_AVERAGE = "AVERAGE"
+    POSTFIX_NONE = "NONE"
+    POSTFIX_HOUR = "HOUR"
+    POSTFIX_DAY = "DAY"
+    POSTFIX_WEEK = "WEEK"
+    POSTFIX_MONTH = "MONTH"
+    POSTFIX_YEAR = "YEAR"
+
+    POSTFIX_CHOICES = [
+        (POSTFIX_NONE, "None"),
+        (POSTFIX_HOUR, "Hour"),
+        (POSTFIX_DAY, "Day"),
+        (POSTFIX_WEEK, "Week"),
+        (POSTFIX_MONTH, "Month"),
+        (POSTFIX_YEAR, "Year"),
+    ]
+
+    CURRENCY_CHOICES = [(CURRENCY_USD, "USD"), (CURRENCY_EURO, "EURO")]
+    PREFIX_CHOICES = [
+        (PREFIX_NONE, "None"),
+        (PREFIX_FROM, "From"),
+        (PREFIX_AVERAGE, "Average"),
+    ]
+
+    currency = models.CharField(
+        max_length=3, choices=CURRENCY_CHOICES, default=CURRENCY_USD
+    )
+    prefix = models.CharField(max_length=7, choices=PREFIX_CHOICES, default=PREFIX_FROM)
+    amount = models.IntegerField()
+    postfix = models.CharField(
+        max_length=5, choices=POSTFIX_CHOICES, default=POSTFIX_MONTH
+    )
+    caption = models.TextField(null=True, blank=True)
+
+
+class Content(models.Model):
+    pass
+
+
+class Column(models.Model):
+    content = models.ForeignKey(
+        Content, on_delete=models.CASCADE, related_name="columns"
+    )
+    title = models.CharField(max_length=255)
+    caption = models.TextField(null=True, blank=True)
+    price = models.OneToOneField(Price, on_delete=models.SET_NULL, null=True)
+    button = models.OneToOneField(Button, on_delete=models.SET_NULL, null=True)
+    picture = models.ImageField(upload_to="widget", null=True, blank=True)
+    featured_column = models.BooleanField(default=False)
+    ribbon_text = models.CharField(max_length=100, null=True, blank=True)
+    skin_color = models.CharField(max_length=100, default="#000")
+
+
+class Features(models.Model):
+    ICON_NONE = "N"
+    ICON_CHECK = "CH"
+    ICON_CROSS = "CR"
+    ICON_MINUS = "M"
+
+    ICON_CHOICES = [
+        (ICON_NONE, "None"),
+        (ICON_CHECK, "Check"),
+        (ICON_CROSS, "Cross"),
+        (ICON_MINUS, "Minus"),
+    ]
+
+    column = models.ForeignKey(
+        Column, on_delete=models.CASCADE, related_name="features"
+    )
+    text = models.TextField()
+    icon = models.CharField(max_length=2, default=ICON_NONE, choices=ICON_CHOICES)
+    hint = models.TextField(null=True, blank=True)
+
+
+class Layout(models.Model):
+    LAYOUT_GRID = "G"
+    LAYOUT_COLUMNS = "C"
+    LAYOUT_TABLE = "T"
+
+    LAYOUT_CHOICES = [
+        (LAYOUT_GRID, "Grid"),
+        (LAYOUT_COLUMNS, "Columns"),
+        (LAYOUT_TABLE, "Table"),
+    ]
+
+    layout_type = models.CharField(
+        max_length=1, choices=LAYOUT_CHOICES, default=LAYOUT_GRID
+    )
+    picture = models.BooleanField(default=True)
+    title = models.BooleanField(default=True)
+    features = models.BooleanField(default=True)
+    price = models.BooleanField(default=True)
+    button = models.BooleanField(default=True)
+
+
+class TitleAppearance(models.Model):
+    color = models.CharField(max_length=100, default="#000")
+    caption_color = models.CharField(max_length=100, default="#000")
+    font = models.PositiveSmallIntegerField(default=24)
+
+
+class FeatureAppearance(models.Model):
+    color = models.CharField(max_length=100, default="#000")
+    font = models.PositiveSmallIntegerField(default=13)
+
+
+class PriceAppearance(models.Model):
+    color = models.CharField(max_length=100, default="#000")
+    caption_color = models.CharField(max_length=100, default="#000")
+    font = models.PositiveSmallIntegerField(default=24)
+
+
+class ButtonAppearance(models.Model):
+    TYPE_OUTLINE = "O"
+    TYPE_FILLED = "F"
+    SIZE_SMALL = "S"
+    SIZE_MEDIUM = "M"
+    SIZE_LARGE = "L"
+
+    SIZE_CHOICE = [
+        (SIZE_SMALL, "Small"),
+        (SIZE_MEDIUM, "Medium"),
+        (SIZE_LARGE, "Large"),
+    ]
+    TYPE_CHOICE = [(TYPE_OUTLINE, "Outline"), (TYPE_FILLED, "Filled")]
+
+    type = models.CharField(max_length=1, choices=TYPE_CHOICE, default=TYPE_FILLED)
+    size = models.CharField(max_length=1, choices=SIZE_CHOICE, default=SIZE_SMALL)
+    button_color = models.CharField(max_length=100, default="#000")
+    label_color = models.CharField(max_length=100, default="#fff")
+
+
+class Appearance(models.Model):
+    title = models.OneToOneField(TitleAppearance, on_delete=models.SET_NULL, null=True)
+    feature = models.OneToOneField(
+        FeatureAppearance, on_delete=models.SET_NULL, null=True
+    )
+    price = models.OneToOneField(PriceAppearance, on_delete=models.SET_NULL, null=True)
+    button = models.OneToOneField(
+        ButtonAppearance, on_delete=models.SET_NULL, null=True
+    )
+
+
+class Container(models.Model):
+    id = models.UUIDField(default=uuid4, primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="widget"
+    )
+    content = models.OneToOneField(Content, on_delete=models.SET_NULL, null=True)
+    layout = models.OneToOneField(Layout, on_delete=models.SET_NULL, null=True)
+    appearance = models.OneToOneField(
+        Appearance, on_delete=models.SET_NULL, null=True, related_name="container"
+    )

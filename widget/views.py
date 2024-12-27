@@ -1,4 +1,5 @@
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework import viewsets
@@ -13,8 +14,18 @@ from .serializers import (
     FormTemplateSerializer,
     SubmittedDataSerializer,
     WidgetSerializer,
+    # Pricing widget serializers
+    ContainerSerializer,
+    CreateContainerSerializer,
 )
-from .models import FormTemplate, PreFill, SubmittedData, WidgetData, WidgetFile
+from .models import (
+    FormTemplate,
+    PreFill,
+    SubmittedData,
+    WidgetData,
+    WidgetFile,
+    Container,
+)
 import csv
 import requests
 
@@ -282,3 +293,37 @@ class FormTemplateViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
     queryset = FormTemplate.objects.all()
     serializer_class = FormTemplateSerializer
+
+
+class ServeScriptView(APIView):
+    def get(self, request, uuid):
+        widget = get_object_or_404(WidgetData, id=uuid)
+        return HttpResponse(widget.script, content_type="application/javascript")
+
+
+# Pricing Widget
+
+
+class ContainerViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user_id = self.request.user.id
+        return Container.objects.filter(user_id=user_id)
+
+    def get_serializer_class(self):
+        if self.request.method in ["POST", "PUT", "PATCH"]:
+            return CreateContainerSerializer
+        return ContainerSerializer
+
+    def get_serializer_context(self):
+        return {"user_id": self.request.user.id, "request": self.request}
+
+
+class PricingWidgetViewSet(APIView):
+    def get(self, request, uuid):
+        queryset = Container.objects.get(id=uuid)
+        serializer = ContainerSerializer(
+            queryset, context={"request": self.request, "view_layout": False}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
