@@ -70,6 +70,7 @@ class WidgetSerializer(serializers.ModelSerializer):
         model = WidgetData
         fields = [
             "id",
+            "widget_type",
             "user",
             "name",
             "title",
@@ -387,7 +388,7 @@ class CreateContentSerializer(serializers.Serializer):
 
 
 class CreateContainerSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
+    id = serializers.CharField(read_only=True)
     layout = LayoutSerializer(required=False)
     content = serializers.ListField(
         child=CreateContentSerializer(), write_only=True, required=False
