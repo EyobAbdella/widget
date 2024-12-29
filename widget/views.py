@@ -166,8 +166,12 @@ class WidgetViewSet(ModelViewSet):
     serializer_class = WidgetSerializer
 
     def get_queryset(self):
-        queryset = WidgetData.objects.filter(user=self.request.user)
-        return queryset
+        widget_type = self.request.query_params.get("widget_type")
+        if widget_type:
+            return WidgetData.objects.filter(
+                user=self.request.user, widget_type__iexact=widget_type
+            )
+        return WidgetData.objects.filter(user=self.request.user)
 
     def get_serializer_context(self):
         return {"user_id": self.request.user.id, "request": self.request}
