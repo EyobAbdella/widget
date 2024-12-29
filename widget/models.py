@@ -304,6 +304,7 @@ class Appearance(models.Model):
 
 class Container(models.Model):
     id = models.UUIDField(default=uuid4, primary_key=True)
+    title = models.CharField(max_length=255)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="widget"
     )

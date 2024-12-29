@@ -389,6 +389,7 @@ class CreateContentSerializer(serializers.Serializer):
 
 class CreateContainerSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
+    title = serializers.CharField()
     layout = LayoutSerializer(required=False)
     content = serializers.ListField(
         child=CreateContentSerializer(), write_only=True, required=False
@@ -397,6 +398,7 @@ class CreateContainerSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         layout_data = validated_data.pop("layout")
+        widget_title = validated_data.pop("title")
         column_data = validated_data.pop("content")
         appearance_data = validated_data.pop("appearance", None)
 
@@ -428,7 +430,11 @@ class CreateContainerSerializer(serializers.Serializer):
 
         user_id = self.context.get("user_id")
         container = Container.objects.create(
-            user_id=user_id, layout=layout, content=content, appearance=appearance
+            user_id=user_id,
+            title=widget_title,
+            layout=layout,
+            content=content,
+            appearance=appearance,
         )
         return container
 
@@ -536,7 +542,7 @@ class ContainerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Container
-        fields = ["id", "content_id", "content", "layout", "appearance"]
+        fields = ["id", "title", "content_id", "content", "layout", "appearance"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
