@@ -37,8 +37,8 @@ class UserBrandInfo(models.Model):
 
 
 class WidgetData(models.Model):
-    WIDGET_CONTACT_FORM = "C"
-    WIDGET_FORM_BUILDER = "F"
+    WIDGET_CONTACT_FORM = "CONTACT_US"
+    WIDGET_FORM_BUILDER = "FORM"
     SUCCESS_MESSAGE = "MSG"
     REDIRECT_TO_URL = "REDIRECT_URL"
     HIDE_FORM = "HIDE_FORM"
@@ -52,7 +52,7 @@ class WidgetData(models.Model):
         (WIDGET_FORM_BUILDER, "Form_Builder"),
     ]
     id = models.UUIDField(default=uuid4, primary_key=True)
-    widget_type = models.CharField(max_length=1, choices=WIDGET_TYPE_CHOICES)
+    widget_type = models.CharField(max_length=10, choices=WIDGET_TYPE_CHOICES)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="widgets"
     )
