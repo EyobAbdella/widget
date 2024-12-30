@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator
 from django.conf import settings
 from django.core.files.storage import default_storage
 from uuid import uuid4
@@ -187,7 +188,9 @@ class Price(models.Model):
         max_length=3, choices=CURRENCY_CHOICES, default=CURRENCY_USD
     )
     prefix = models.CharField(max_length=7, choices=PREFIX_CHOICES, default=PREFIX_FROM)
-    amount = models.IntegerField()
+    amount = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[MinValueValidator(0)]
+    )
     postfix = models.CharField(
         max_length=5, choices=POSTFIX_CHOICES, default=POSTFIX_MONTH
     )
