@@ -8,7 +8,7 @@ router.register("pricing", views.ContainerViewSet, basename="PricingWidget")
 router.register("template", views.FormTemplateViewSet)
 
 prefill_form = NestedDefaultRouter(router, "form", lookup="widget")
-prefill_form.register("form", views.PreFillFormViewSet, basename="Prefill-Form")
+prefill_form.register("prefill", views.PreFillFormViewSet, basename="Prefill-Form")
 
 widget_data = NestedDefaultRouter(router, "form", lookup="widget")
 widget_data.register("data", views.SubmittedDataView, basename="Submitted Data")

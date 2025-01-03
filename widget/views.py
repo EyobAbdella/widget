@@ -227,13 +227,14 @@ class PreFillFormViewSet(viewsets.ViewSet):
 
             data = []
 
+            submittedValues = {}
             for key, value in query_params.items():
                 field_id = prefill_map.get(key)
-
                 if field_id:
                     matching_field = field_map.get(field_id)
 
                     if matching_field:
+                        submittedValues[matching_field["label"]] = value
                         data.append(
                             {
                                 matching_field["label"]: value,
@@ -257,14 +258,15 @@ class PreFillFormViewSet(viewsets.ViewSet):
                 )
                 widget.sheet_id = sheet_id
                 widget.save()
-            send_mail(
-                "Submitted Data",
-                f"{data}",
-                "widget@contact.com",
-                [widget.user],
-                fail_silently=False,
-            )
-            SubmittedData.objects.create(widget_id=widget_id, data=data)
+                if widget.is_email_notification:
+                    send_mail(
+                        widget.email_notification.subject,  # subject
+                        f"{widget.email_notification.message} \n{data}",  # message
+                        widget.email_notification.sender_name,  # sender name
+                        widget.email_notification.email,
+                        fail_silently=False,
+                    )
+            SubmittedData.objects.create(widget_id=widget_id, data=submittedValues)
 
         except WidgetData.DoesNotExist:
             return Response({"error": "Widget not found."}, status=404)

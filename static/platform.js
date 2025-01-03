@@ -1,7 +1,8 @@
 (function () {
   const staticFileEndpoint = "https://widgetcontact.myfindata.com";
   const RECAPTCHA_SITE_KEY = "6LdL15YqAAAAAJADkgf9Nq9NGS88QA2WFcRtzWmu";
-  const endpointUrl = "https://widgetcontact.myfindata.com/widgets/form";
+  const endpointUrl = "https://widgetcontact.myfindata.com/widgets";
+  // const endpointUrl = "http://localhost:8000/widgets";
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = `${staticFileEndpoint}/static/style.css`;
@@ -200,7 +201,7 @@
   const urlParams = getUrlParams();
 
   if (urlParams !== "") {
-    submitData(`${endpointUrl}/widget/${uuid}/form/?${urlParams}`)
+    submitData(`${endpointUrl}/form/${uuid}/prefill/?${urlParams}`)
       .then((res) => {
         alert("submitted successfully!");
       })
@@ -224,9 +225,7 @@
         const script = document.createElement("script");
         script.src = scriptUrl;
         script.async = true;
-        script.onload = function () {
-          console.log(`Script ${uuid} loaded successfully.`);
-        };
+        script.onload = function () {};
         script.onerror = function () {
           console.error(`Failed to load script ${uuid}`);
         };
@@ -236,26 +235,35 @@
         const adminData = res.admin_brand_info;
         const userData = res.user_brand_info;
 
-        const adminBrandingLink = document.querySelector("#admin_branding a");
-        const adminBrandingImage = document.querySelector(
-          "#admin_branding img"
-        );
-        const adminBrandingName = document.querySelector(
-          "#admin_branding_name"
-        );
-        adminBrandingLink.href = adminData.redirect_url || "#";
-        adminBrandingImage.src = adminData.logo || "";
-        adminBrandingImage.alt = adminData.name || "";
-        adminBrandingName.textContent = adminData.name || "";
+        if (adminData) {
+          const adminLink = document.querySelector("#admin_branding a");
+          if (adminLink)
+            adminLink.setAttribute("href", adminData.redirect_url || "#");
 
-        const userBrandingLink = document.querySelector("#user_branding a");
-        const userBrandingImage = document.querySelector("#user_branding img");
-        const userBrandingName = document.querySelector("#user_branding_name");
+          const adminImg = document.querySelector("#admin_branding img");
+          if (adminImg) {
+            adminImg.setAttribute("src", adminData.logo || "");
+            adminImg.setAttribute("alt", adminData.name || "");
+          }
 
-        userBrandingLink.href = userData.redirect_url || "#";
-        userBrandingImage.src = userData.logo || "";
-        userBrandingImage.alt = userData.name || "";
-        userBrandingName.textContent = userData.name || "";
+          const adminName = document.querySelector("#admin_branding_name");
+          if (adminName) adminName.textContent = adminData.name || "";
+        }
+
+        if (userData) {
+          const userLink = document.querySelector("#user_branding a");
+          if (userLink)
+            userLink.setAttribute("href", userData.redirect_url || "#");
+
+          const userImg = document.querySelector("#user_branding img");
+          if (userImg) {
+            userImg.setAttribute("src", userData.logo || "");
+            userImg.setAttribute("alt", userData.name || "");
+          }
+
+          const userName = document.querySelector("#user_branding_name");
+          if (userName) userName.textContent = userData.name || "";
+        }
 
         const spam_protection = res.spam_protection;
 
