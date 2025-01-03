@@ -1,7 +1,7 @@
 (function () {
   const staticFileEndpoint = "https://widgetcontact.myfindata.com";
   const RECAPTCHA_SITE_KEY = "6LdL15YqAAAAAJADkgf9Nq9NGS88QA2WFcRtzWmu";
-  const endpointUrl = "https://widgetcontact.myfindata.com/contact-form";
+  const endpointUrl = "https://widgetcontact.myfindata.com/widgets/form";
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = `${staticFileEndpoint}/static/style.css`;
