@@ -18,7 +18,7 @@ urlpatterns = [
     path("script/<uuid:uuid>.js", views.ServeScriptView.as_view()),
     path("pr/<uuid:uuid>", views.PricingWidgetViewSet.as_view()),
     path(
-        "widget/<uuid:uuid>/download-data",
+        "<uuid:uuid>/download-data",
         views.DownloadSubmittedDataView.as_view(),
     ),
 ]
