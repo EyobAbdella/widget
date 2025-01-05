@@ -8,6 +8,13 @@
   link.href = `${staticFileEndpoint}/static/style.css`;
   document.head.appendChild(link);
 
+  // Google Font
+  const fontLink = document.createElement("link");
+  fontLink.rel = "stylesheet";
+  fontLink.href =
+    "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lato:wght@400;700&family=Montserrat:wght@400;500;600&family=Open+Sans:wght@400;600&family=Poppins:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap";
+  document.head.appendChild(fontLink);
+
   const widgetDiv = document.querySelector('div[class^="cont-app-"]');
   if (!widgetDiv) {
     console.log("Widget div not found.");

@@ -1,10 +1,14 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.conf import settings
-from django.core.files.storage import default_storage
 from uuid import uuid4
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+
+
+CURRENCY_USD = "USD"
+CURRENCY_EURO = "EUR"
+CURRENCY_CHOICES = [(CURRENCY_USD, "USD"), (CURRENCY_EURO, "EURO")]
 
 
 class EmailNotification(models.Model):
@@ -35,6 +39,56 @@ class UserBrandInfo(models.Model):
     logo = models.ImageField(upload_to="user/brand_logo", blank=True, null=True)
     name = models.CharField(max_length=255, null=True, blank=True)
     redirect_url = models.URLField(null=True, blank=True)
+
+
+class ButtonStyle(models.Model):
+    background_color = models.CharField(max_length=100, blank=True, null=True)
+    text_color = models.CharField(max_length=100, blank=True, null=True)
+    border_radius = models.CharField(max_length=50, blank=True, null=True)
+    padding = models.CharField(max_length=50, blank=True, null=True)
+    font_size = models.CharField(max_length=50, blank=True, null=True)
+
+
+class Background(models.Model):
+    BACKGROUND_TYPE_CHOICES = [
+        ("Image", "Image"),
+        ("Video", "Video"),
+    ]
+    type = models.CharField(
+        max_length=10, choices=BACKGROUND_TYPE_CHOICES, blank=True, null=True
+    )
+    value = models.TextField(blank=True, null=True)
+    opacity = models.FloatField(blank=True, null=True)
+    file = models.FileField(upload_to="background_files/", blank=True, null=True)
+
+
+class DisplaySettings(models.Model):
+    MODE_CHOICES = [
+        ("Inline", "Inline"),
+        ("Popup", "Popup"),
+        ("Sidebar", "Sidebar"),
+    ]
+    TRIGGER_CHOICES = [
+        ("Immediate", "Immediate"),
+        ("Delay", "Delay"),
+        ("Scroll", "Scroll"),
+        ("Exit", "Exit"),
+    ]
+    POSITION_CHOICES = [
+        ("Left", "Left"),
+        ("Right", "Right"),
+    ]
+
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, null=True, blank=True)
+    trigger = models.CharField(
+        max_length=10, choices=TRIGGER_CHOICES, null=True, blank=True
+    )
+    position = models.CharField(
+        max_length=5, choices=POSITION_CHOICES, null=True, blank=True
+    )
+    button_text = models.CharField(max_length=100, null=True, blank=True)
+    button_style = models.OneToOneField(ButtonStyle, on_delete=models.CASCADE)
+    background = models.OneToOneField(Background, on_delete=models.CASCADE)
 
 
 class WidgetData(models.Model):
@@ -68,6 +122,13 @@ class WidgetData(models.Model):
     success_msg = models.TextField(blank=True, null=True)
     redirect_url = models.URLField(blank=True, null=True)
     spam_protection = models.BooleanField(default=False)
+    display_settings = models.OneToOneField(
+        DisplaySettings, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    font_family = models.CharField(max_length=255, blank=True, null=True)
+    title_size = models.CharField(max_length=255, blank=True, null=True)
+    text_size = models.CharField(max_length=255, blank=True, null=True)
+    direction = models.CharField(max_length=255, blank=True, null=True)
     email_notification = models.OneToOneField(
         EmailNotification, on_delete=models.CASCADE, null=True, blank=True
     )
@@ -143,11 +204,6 @@ class FormTemplate(models.Model):
         super().save(*args, **kwargs)
 
 
-from django.db import models
-from django.conf import settings
-from uuid import uuid4
-
-
 class Button(models.Model):
     text = models.CharField(max_length=100)
     link = models.URLField(null=True, blank=True)
@@ -155,8 +211,6 @@ class Button(models.Model):
 
 
 class Price(models.Model):
-    CURRENCY_USD = "USD"
-    CURRENCY_EURO = "EUR"
     PREFIX_NONE = "NONE"
     PREFIX_FROM = "FROM"
     PREFIX_UP_TO = "UP_TO"
@@ -177,7 +231,6 @@ class Price(models.Model):
         (POSTFIX_YEAR, "Year"),
     ]
 
-    CURRENCY_CHOICES = [(CURRENCY_USD, "USD"), (CURRENCY_EURO, "EURO")]
     PREFIX_CHOICES = [
         (PREFIX_NONE, "None"),
         (PREFIX_FROM, "From"),
@@ -316,3 +369,6 @@ class Container(models.Model):
     appearance = models.OneToOneField(
         Appearance, on_delete=models.SET_NULL, null=True, related_name="container"
     )
+
+
+# Appointment Widget

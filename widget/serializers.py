@@ -2,6 +2,9 @@ from django.conf import settings
 from rest_framework import serializers
 from widget.models import (
     AdminBrandInfo,
+    Background,
+    ButtonStyle,
+    DisplaySettings,
     EmailNotification,
     FormTemplate,
     PreFill,
@@ -54,6 +57,40 @@ class UserBrandInfoSerializer(serializers.ModelSerializer):
         fields = ["logo", "name", "redirect_url"]
 
 
+class ButtonStyleSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = ButtonStyle
+        fields = [
+            "background_color",
+            "text_color",
+            "border_radius",
+            "padding",
+            "font_size",
+        ]
+
+
+class BackgroundSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Background
+        fields = ["type", "value", "opacity", "file"]
+
+
+class DisplaySettingsSerializer(serializers.ModelSerializer):
+    button_style = ButtonStyleSerializers(required=False)
+    background = BackgroundSerializers(required=False)
+
+    class Meta:
+        model = DisplaySettings
+        fields = [
+            "mode",
+            "trigger",
+            "position",
+            "button_text",
+            "button_style",
+            "background",
+        ]
+
+
 class WidgetSerializer(serializers.ModelSerializer):
     total_submissions = serializers.SerializerMethodField()
     pre_fill = serializers.ListField(
@@ -65,6 +102,7 @@ class WidgetSerializer(serializers.ModelSerializer):
     admin_brand_info = AdminBrandInfoSerializer(read_only=True)
     user_brand_info = UserBrandInfoSerializer()
     script_url = serializers.SerializerMethodField()
+    display_settings = DisplaySettingsSerializer()
 
     class Meta:
         model = WidgetData
@@ -84,6 +122,11 @@ class WidgetSerializer(serializers.ModelSerializer):
             "success_msg",
             "post_submit_action",
             "spam_protection",
+            "display_settings",
+            "font_family",
+            "title_size",
+            "text_size",
+            "direction",
             "pre_fill",
             "email_notification",
             "is_email_notification",
@@ -128,13 +171,33 @@ class WidgetSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         email_notification_data = validated_data.pop("email_notification", None)
         pre_fill_data = validated_data.pop("pre_fill", [])
+        display_settings_data = validated_data.pop("display_settings", None)
         user_brand_info_data = validated_data.pop("user_brand_info", None)
         user_id = self.context.get("user_id")
+
+        if display_settings_data:
+            background_data = display_settings_data.pop("background", None)
+            if background_data:
+                background = Background.objects.create(**background_data)
+            else:
+                background = None
+
+            button_style_data = display_settings_data.pop("button_style", None)
+            if button_style_data:
+                button_style = ButtonStyle.objects.create(**button_style_data)
+            else:
+                button_style = None
+
+            display_settings = DisplaySettings.objects.create(
+                **display_settings_data,
+                button_style=button_style,
+                background=background,
+            )
+            validated_data["display_settings"] = display_settings
 
         if user_brand_info_data:
             user_brand_info = UserBrandInfo.objects.create(**user_brand_info_data)
             validated_data["user_brand_info"] = user_brand_info
-
         widget = WidgetData.objects.create(user_id=user_id, **validated_data)
 
         if email_notification_data:
