@@ -208,70 +208,70 @@ class DownloadSubmittedDataView(APIView):
         return response
 
 
-class PreFillFormViewSet(viewsets.ViewSet):
-    def create(self, request, *args, **kwargs):
-        widget_id = self.kwargs.get("widget_pk")
-        if not widget_id:
-            return Response({"error": "Widget ID is missing in URL."}, status=400)
+# class PreFillFormViewSet(viewsets.ViewSet):
+#     def create(self, request, *args, **kwargs):
+#         widget_id = self.kwargs.get("widget_pk")
+#         if not widget_id:
+#             return Response({"error": "Widget ID is missing in URL."}, status=400)
 
-        query_params = request.query_params
+#         query_params = request.query_params
 
-        try:
-            widget = WidgetData.objects.get(id=widget_id)
-            widget_fields = widget.widget_fields
+#         try:
+#             widget = WidgetData.objects.get(id=widget_id)
+#             widget_fields = widget.widget_fields
 
-            prefills = PreFill.objects.filter(widget_id=widget_id)
-            prefill_map = {pre.parameter_name: pre.field_id for pre in prefills}
+#             prefills = PreFill.objects.filter(widget_id=widget_id)
+#             prefill_map = {pre.parameter_name: pre.field_id for pre in prefills}
 
-            field_map = {field["id"]: field for field in widget_fields}
+#             field_map = {field["id"]: field for field in widget_fields}
 
-            data = []
+#             data = []
 
-            submittedValues = {}
-            for key, value in query_params.items():
-                field_id = prefill_map.get(key)
-                if field_id:
-                    matching_field = field_map.get(field_id)
+#             submittedValues = {}
+#             for key, value in query_params.items():
+#                 field_id = prefill_map.get(key)
+#                 if field_id:
+#                     matching_field = field_map.get(field_id)
 
-                    if matching_field:
-                        submittedValues[matching_field["label"]] = value
-                        data.append(
-                            {
-                                matching_field["label"]: value,
-                            }
-                        )
-            if widget.sheet_id:
-                write_sheet(
-                    widget.user,
-                    widget.sheet_id,
-                    [[list(d.values())[0] for d in data]],
-                )
-            if not widget.sheet_id:
-                sheet_id = create_sheet(widget.user)
-                write_sheet(
-                    widget.user,
-                    sheet_id,
-                    [
-                        [list(d.keys())[0] for d in data],
-                        [list(d.values())[0] for d in data],
-                    ],
-                )
-                widget.sheet_id = sheet_id
-                widget.save()
-                if widget.is_email_notification:
-                    send_mail(
-                        widget.email_notification.subject,  # subject
-                        f"{widget.email_notification.message} \n{data}",  # message
-                        widget.email_notification.sender_name,  # sender name
-                        widget.email_notification.email,
-                        fail_silently=False,
-                    )
-            SubmittedData.objects.create(widget_id=widget_id, data=submittedValues)
+#                     if matching_field:
+#                         submittedValues[matching_field["label"]] = value
+#                         data.append(
+#                             {
+#                                 matching_field["label"]: value,
+#                             }
+#                         )
+#             if widget.sheet_id:
+#                 write_sheet(
+#                     widget.user,
+#                     widget.sheet_id,
+#                     [[list(d.values())[0] for d in data]],
+#                 )
+#             if not widget.sheet_id:
+#                 sheet_id = create_sheet(widget.user)
+#                 write_sheet(
+#                     widget.user,
+#                     sheet_id,
+#                     [
+#                         [list(d.keys())[0] for d in data],
+#                         [list(d.values())[0] for d in data],
+#                     ],
+#                 )
+#                 widget.sheet_id = sheet_id
+#                 widget.save()
+#                 if widget.is_email_notification:
+#                     send_mail(
+#                         widget.email_notification.subject,  # subject
+#                         f"{widget.email_notification.message} \n{data}",  # message
+#                         widget.email_notification.sender_name,  # sender name
+#                         widget.email_notification.email,
+#                         fail_silently=False,
+#                     )
+#             SubmittedData.objects.create(widget_id=widget_id, data=submittedValues)
 
-        except WidgetData.DoesNotExist:
-            return Response({"error": "Widget not found."}, status=404)
+#         except WidgetData.DoesNotExist:
+#             return Response({"error": "Widget not found."}, status=404)
 
-        return Response("", status=200)
+#         return Response("", status=200)
 
 
 class SubmittedDataView(viewsets.ModelViewSet):

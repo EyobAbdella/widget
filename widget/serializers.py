@@ -91,8 +91,20 @@ class DisplaySettingsSerializer(serializers.ModelSerializer):
         ]
 
 
+class PreFillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PreFill
+        fields = ["field_id", "parameter_name"]
+        read_only_fields = ["widget"]
+
+    def create(self, validated_data):
+        widget_id = self.context.get("widget_id")
+        return PreFill.objects.create(widget_id=widget_id, **validated_data)
+
+
 class WidgetSerializer(serializers.ModelSerializer):
     total_submissions = serializers.SerializerMethodField()
+    pre_fill_values = PreFillSerializer(source="pre_fill", many=True)
     pre_fill = serializers.ListField(
         child=serializers.DictField(child=serializers.CharField()),
         write_only=True,
@@ -128,6 +140,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "text_size",
             "direction",
             "pre_fill",
+            "pre_fill_values",
             "email_notification",
             "is_email_notification",
             "user_brand_info",
@@ -217,6 +230,7 @@ class WidgetSerializer(serializers.ModelSerializer):
         email_notification_data = validated_data.pop("email_notification", None)
         user_brand_info_data = validated_data.pop("user_brand_info", None)
         pre_fill_data = validated_data.pop("pre_fill", None)
+        display_settings_data = validated_data.pop("display_settings", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -243,6 +257,46 @@ class WidgetSerializer(serializers.ModelSerializer):
                 user_brand_info = UserBrandInfo.objects.create(**user_brand_info_data)
                 instance.user_brand_info = user_brand_info
 
+        if display_settings_data:
+            button_style_data = display_settings_data.pop("button_style", None)
+            if button_style_data:
+                if instance.display_settings and instance.display_settings.button_style:
+                    button_style = instance.display_settings.button_style
+                    for attr, value in button_style_data.items():
+                        setattr(button_style, attr, value)
+                    button_style.save()
+                else:
+                    button_style = ButtonStyle.objects.create(**button_style_data)
+            else:
+                button_style = None
+
+            background_data = display_settings_data.pop("background", None)
+            if background_data:
+                if instance.display_settings and instance.display_settings.background:
+                    background = instance.display_settings.background
+                    for attr, value in background_data.items():
+                        setattr(background, attr, value)
+                    background.save()
+                else:
+                    background = Background.objects.create(**background_data)
+            else:
+                background = None
+
+            if instance.display_settings:
+                display_settings = instance.display_settings
+                for attr, value in display_settings_data.items():
+                    setattr(display_settings, attr, value)
+                display_settings.button_style = button_style
+                display_settings.background = background
+                display_settings.save()
+            else:
+                display_settings = DisplaySettings.objects.create(
+                    **display_settings_data,
+                    button_style=button_style,
+                    background=background,
+                )
+            instance.display_settings = display_settings
+
         if pre_fill_data is not None:
             instance.pre_fill.all().delete()
             PreFill.objects.bulk_create(
@@ -251,17 +305,6 @@ class WidgetSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
-
-
-class PreFillSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PreFill
-        fields = ["id", "widget", "field_id", "parameter_name"]
-        read_only_fields = ["widget"]
-
-    def create(self, validated_data):
-        widget_id = self.context.get("widget_id")
-        return PreFill.objects.create(widget_id=widget_id, **validated_data)
 
 
 class SubmittedDataSerializer(serializers.ModelSerializer):

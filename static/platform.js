@@ -1,5 +1,6 @@
 (function () {
   const staticFileEndpoint = "https://widgetcontact.myfindata.com";
+  // const staticFileEndpoint = "http://localhost:8000";
   const RECAPTCHA_SITE_KEY = "6LdL15YqAAAAAJADkgf9Nq9NGS88QA2WFcRtzWmu";
   const endpointUrl = "https://widgetcontact.myfindata.com/widgets";
   // const endpointUrl = "http://localhost:8000/widgets";
@@ -9,11 +10,11 @@
   document.head.appendChild(link);
 
   // Google Font
-  const fontLink = document.createElement("link");
-  fontLink.rel = "stylesheet";
-  fontLink.href =
+  const googleFontLink = document.createElement("link");
+  googleFontLink.rel = "stylesheet";
+  googleFontLink.href =
     "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lato:wght@400;700&family=Montserrat:wght@400;500;600&family=Open+Sans:wght@400;600&family=Poppins:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap";
-  document.head.appendChild(fontLink);
+  document.head.appendChild(googleFontLink);
 
   const widgetDiv = document.querySelector('div[class^="cont-app-"]');
   if (!widgetDiv) {
@@ -25,25 +26,6 @@
   if (!uuid) {
     console.log("UUID not found in div class.");
     return;
-  }
-
-  function getUrlParams() {
-    const params = new URLSearchParams(window.location.search);
-    return params.toString();
-  }
-
-  function submitData(url) {
-    return fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(),
-    })
-      .then((response) => response.json())
-      .catch((error) => {
-        console.error(error);
-      });
   }
 
   function submitFormDataWithFiles(url, formData) {
@@ -123,12 +105,12 @@
               formData.append(originalId, file);
             });
           }
-        } else if (type == "scale") {
+        } else if (type === "scale") {
           const scaleInput = element.querySelector(
             'input[type="radio"]:checked'
           );
           formData.append(originalId, scaleInput.value);
-        } else if (type == "choice") {
+        } else if (type === "choice") {
           const selectedChoice = element.querySelector(
             'input[name="choice"]:checked'
           );
@@ -136,7 +118,7 @@
             originalId,
             selectedChoice ? selectedChoice.value : null
           );
-        } else if (type == "multiple_choice") {
+        } else if (type === "multiple_choice") {
           const choices = element.querySelectorAll(
             'input[name="multiple-choice"]:checked'
           );
@@ -205,20 +187,6 @@
     }
   }
 
-  const urlParams = getUrlParams();
-
-  if (urlParams !== "") {
-    submitData(`${endpointUrl}/form/${uuid}/prefill/?${urlParams}`)
-      .then((res) => {
-        alert("submitted successfully!");
-      })
-      .catch((error) => {
-        console.error("Failed to send URL parameters:", error);
-      });
-  } else {
-    loadWidget();
-  }
-
   function loadWidget() {
     fetch(`${endpointUrl}/${uuid}`)
       .then((response) => {
@@ -239,6 +207,10 @@
         document.body.appendChild(script);
 
         widgetDiv.innerHTML = res.html;
+
+        const preFillValues = res.pre_fill_values;
+        const spam_protection = res.spam_protection;
+
         const adminData = res.admin_brand_info;
         const userData = res.user_brand_info;
 
@@ -272,8 +244,6 @@
           if (userName) userName.textContent = userData.name || "";
         }
 
-        const spam_protection = res.spam_protection;
-
         const form = widgetDiv.querySelector("form");
         const fields = Array.from(
           form.querySelectorAll(
@@ -292,6 +262,29 @@
           };
         });
 
+        const urlParams = new URLSearchParams(window.location.search);
+
+        preFillValues.forEach(({ field_id, parameter_name }) => {
+          const value = urlParams.get(parameter_name);
+          if (value) {
+            const field = fields.find((f) => f.originalId === field_id);
+
+            if (!field || ["multiple_choice", "choice"].includes(field.type)) {
+              return;
+            }
+
+            const element = field.element;
+            if (["textarea", "text", "select"].includes(field.type)) {
+              element.value = value; // Set the value
+            } else if (field.type === "radio" || field.type === "checkbox") {
+              const matchingInput = element.querySelector(
+                `input[value="${value}"]`
+              );
+              if (matchingInput) matchingInput.checked = true;
+            }
+          }
+        });
+
         if (spam_protection) {
           const recaptchaScript = document.createElement("script");
           recaptchaScript.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
@@ -299,10 +292,13 @@
           recaptchaScript.defer = true;
           document.head.appendChild(recaptchaScript);
         }
+
         handleFormSubmission(form, fields, spam_protection);
       })
       .catch((error) => {
         console.error("Failed to load widget:", error);
       });
   }
+
+  loadWidget();
 })();
