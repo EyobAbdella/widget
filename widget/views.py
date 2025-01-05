@@ -79,14 +79,24 @@ class WidgetCodeView(APIView):
                                     widget=widget, file=uploaded_files[0]
                                 )
                                 value = request.build_absolute_uri(widget_file.file.url)
+
                     elif field_type:
                         value = request.data.get(field_id, "").strip()
+                        if field_type == "consent" and is_required and value != "true":
+                            return Response(
+                                {"error": f"This {field_id} required"},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+                        elif field_type != "consent":
+                            field_values.append(
+                                {
+                                    "label": field_label,
+                                    "type": field_type,
+                                    "value": value,
+                                }
+                            )
 
-                    field_values.append(
-                        {"label": field_label, "type": field_type, "value": value}
-                    )
-
-                    if is_required and not value:
+                    if is_required and not value and field_type != "consent":
                         errors[field_label] = f"{field_label} is required."
 
                 if errors:

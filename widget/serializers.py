@@ -104,7 +104,7 @@ class PreFillSerializer(serializers.ModelSerializer):
 
 class WidgetSerializer(serializers.ModelSerializer):
     total_submissions = serializers.SerializerMethodField()
-    pre_fill_values = PreFillSerializer(source="pre_fill", many=True)
+    pre_fill_values = PreFillSerializer(source="pre_fill", many=True, required=False)
     pre_fill = serializers.ListField(
         child=serializers.DictField(child=serializers.CharField()),
         write_only=True,

@@ -62,6 +62,7 @@
           } else {
             if (
               type === "scale" ||
+              type === "consent" ||
               type === "choice" ||
               type === "multiple_choice"
             ) {
@@ -105,6 +106,11 @@
               formData.append(originalId, file);
             });
           }
+        } else if (type === "consent") {
+          const InputValue = element.querySelector(
+            'input[type="checkbox"]:checked'
+          );
+          formData.append(originalId, InputValue ? InputValue.checked : false);
         } else if (type === "scale") {
           const scaleInput = element.querySelector(
             'input[type="radio"]:checked'
@@ -247,7 +253,7 @@
         const form = widgetDiv.querySelector("form");
         const fields = Array.from(
           form.querySelectorAll(
-            "[role='radiogroup'], [data-type='multiple_choice'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea"
+            "[role='radiogroup'], [data-type='multiple_choice'], [data-type='consent'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea"
           )
         ).map((element) => {
           return {
@@ -274,8 +280,8 @@
             }
 
             const element = field.element;
-            if (["textarea", "text", "select"].includes(field.type)) {
-              element.value = value; // Set the value
+            if (["textarea", "text", "email"].includes(field.type)) {
+              element.value = value;
             } else if (field.type === "radio" || field.type === "checkbox") {
               const matchingInput = element.querySelector(
                 `input[value="${value}"]`
