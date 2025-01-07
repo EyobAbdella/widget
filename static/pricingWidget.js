@@ -15,24 +15,47 @@
   cardHolder.id = "cardHolder";
   widgetDiv.appendChild(cardHolder);
 
+  function handleButtonClick(linkType, linkValue, newTab) {
+    if (linkType === "URL") {
+      if (newTab) {
+        window.open(linkValue, "_blank");
+      } else {
+        window.location.href = linkValue;
+      }
+    } else if (linkType === "EMAIL") {
+      window.location.href = `mailto:${linkValue}`;
+    }
+  }
   const renderFeatureList = (features, appearance) => {
+    const iconMap = {
+      CH: `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+           </svg>`,
+      CR: `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+           </svg>`,
+      M: `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16" />
+           </svg>`,
+      N: "",
+    };
     return features
       .map(
         (feature) => `
-        <li style="color: ${appearance.color}; font-size: ${
+      <li style="color: ${appearance.color}; font-size: ${
           appearance.font
-        }px;" class="flex">
-  <span style="margin-right: 8px;">
-      ${feature.icon === "CH" ? "✔" : feature.icon === "CR" ? "❌" : ""}
-  </span>
+        }px;" class="flex items-center">
+          <span style="margin-right: 8px;">
+              ${iconMap[feature.icon] || ""}
+          </span>
           ${feature.text}
           ${
             feature.hint
               ? `<span style="font-size: 12px; color: #6b7280; margin-left: 8px;">(${feature.hint})</span>`
               : ""
           }
-        </li>
-      `
+      </li>
+  `
       )
       .join("");
   };
@@ -79,6 +102,7 @@
         ? "€"
         : item.price.currency
       : "";
+
     return `
         <div class="max-w-64 mx-auto bg-white border border-gray-200 rounded-lg shadow overflow-hidden relative ${
           item.featured_column ? "-translate-y-5" : ""
@@ -140,12 +164,17 @@
               ${
                 item.button
                   ? `
-                 <button style="${getButtonStyles(
-                   appearance.button,
-                   item.featured_column
-                 )}" class="mt-4 mx-auto hover:opacity-80 duration-150">
-                   ${item.button.text}
-                 </button>
+                <button 
+                    style="${getButtonStyles(
+                      appearance.button,
+                      item.featured_column
+                    )}" 
+                    class="mt-4 mx-auto hover:opacity-80 duration-150"
+                    data-link-type="${item.button.link.link_type}"
+                    data-link-value="${item.button.link.link_value}"
+                    data-new-tab="${item.button.link.new_tab}">
+                    ${item.button.text}
+                </button>
                   <span class="text-xs mx-auto mt-1.5">${
                     item.button.caption ? item.button.caption : ""
                   }</span>`
@@ -165,6 +194,16 @@
       .join("");
 
     cardHolder.innerHTML = DOMPurify.sanitize(sanitizedContent);
+    const buttons = cardHolder.querySelectorAll("button");
+    buttons.forEach((button) => {
+      const linkType = button.getAttribute("data-link-type");
+      const linkValue = button.getAttribute("data-link-value");
+      const newTab = button.getAttribute("data-new-tab") === "true";
+
+      button.addEventListener("click", () => {
+        handleButtonClick(linkType, linkValue, newTab);
+      });
+    });
   };
   if (typeof DOMPurify === "undefined") {
     const script = document.createElement("script");

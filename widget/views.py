@@ -328,6 +328,7 @@ class ContainerViewSet(ModelViewSet):
         return Container.objects.filter(user_id=user_id)
 
     def get_serializer_class(self):
+        # print(self.request.data)
         if self.request.method in ["POST", "PUT", "PATCH"]:
             return CreateContainerSerializer
         return ContainerSerializer

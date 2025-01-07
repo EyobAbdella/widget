@@ -7,6 +7,7 @@ from widget.models import (
     DisplaySettings,
     EmailNotification,
     FormTemplate,
+    Link,
     PreFill,
     SubmitButton,
     SubmittedData,
@@ -417,13 +418,43 @@ class AppearanceSerializer(serializers.ModelSerializer):
         fields = ["title", "feature", "price", "button"]
 
 
+class LinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Link
+        fields = ["link_type", "link_value", "new_tab"]
+
+
 class ButtonSerializer(serializers.ModelSerializer):
+    link = LinkSerializer()
+
     class Meta:
         model = Button
         fields = ["id", "text", "link", "caption"]
 
+    def create(self, validated_data):
+        link_data = validated_data.pop("link")
+        link_instance = Link.objects.create(**link_data)
+        button_instance = Button.objects.create(link=link_instance, **validated_data)
+        return button_instance
+
+    def update(self, instance, validated_data):
+        link_data = validated_data.pop("link", None)
+        if link_data:
+            if instance.link:
+                for attr, value in link_data.items():
+                    setattr(instance.link, attr, value)
+                instance.link.save()
+            else:
+                instance.link = Link.objects.create(**link_data)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
 
 class PriceSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Price
         fields = ["id", "currency", "prefix", "amount", "postfix", "caption"]
@@ -440,7 +471,7 @@ class CreateContentSerializer(serializers.Serializer):
     title = serializers.CharField(required=False)
     caption = serializers.CharField(required=False)
     price = PriceSerializer(required=False)
-    button = ButtonSerializer(required=False)
+    button = ButtonSerializer()
     featured_column = serializers.BooleanField(required=False)
     ribbon_text = serializers.CharField(required=False)
     features = serializers.ListField(child=FeaturesSerializer(), required=False)
@@ -453,8 +484,9 @@ class CreateContentSerializer(serializers.Serializer):
         features_data = validated_data.pop("features", [])
 
         price = Price.objects.create(**price_data) if price_data else None
-        button = Button.objects.create(**button_data) if button_data else None
-
+        button_serializer = ButtonSerializer(data=button_data)
+        button_serializer.is_valid(raise_exception=True)
+        button = button_serializer.save()
         column = Column.objects.create(price=price, button=button, **validated_data)
 
         for feature_data in features_data:
@@ -476,12 +508,11 @@ class CreateContentSerializer(serializers.Serializer):
                 instance.price = Price.objects.create(**price_data)
 
         if button_data:
-            if instance.button:
-                for attr, value in button_data.items():
-                    setattr(instance.button, attr, value)
-                instance.button.save()
-            else:
-                instance.button = Button.objects.create(**button_data)
+            button_serializer = ButtonSerializer(
+                instance=instance.button, data=button_data
+            )
+            button_serializer.is_valid(raise_exception=True)
+            instance.button = button_serializer.save()
 
         instance.features.all().delete()
         for feature_data in features_data:

@@ -1,9 +1,9 @@
 from django.db import models
-from django.core.validators import MinValueValidator
+from django.core.validators import URLValidator, validate_email, MinValueValidator
 from django.conf import settings
 from uuid import uuid4
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
+import re
 
 
 CURRENCY_USD = "USD"
@@ -204,9 +204,45 @@ class FormTemplate(models.Model):
         super().save(*args, **kwargs)
 
 
+# Pricing Widget
+
+
+class Link(models.Model):
+    link_type = models.CharField(
+        max_length=5, choices=[("URL", "Url"), ("EMAIL", "Email"), ("PHONE", "Phone")]
+    )
+    link_value = models.CharField(max_length=255)
+    new_tab = models.BooleanField(default=True)
+
+    def clean(self):
+        super().clean()
+
+        if self.link_type == "URL":
+            validator = URLValidator()
+            try:
+                validator(self.link_value)
+            except ValidationError:
+                raise ValidationError({"link": "Invalid URL"})
+
+        elif self.link_type == "EMAIL":
+            try:
+                validate_email(self.link_value)
+            except ValidationError:
+                raise ValidationError({"Email": "Invalid email address"})
+
+        elif self.link_type == "PHONE":
+            phone_pattern = r"^\+?\d{7,15}$"
+            if not re.match(phone_pattern, self.link_value):
+                raise ValidationError({"Phone": "Invalid phone number"})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+
 class Button(models.Model):
     text = models.CharField(max_length=100)
-    link = models.URLField(null=True, blank=True)
+    link = models.OneToOneField(Link, on_delete=models.SET_NULL, null=True)
     caption = models.TextField(null=True, blank=True)
 
 
