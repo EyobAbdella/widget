@@ -12,6 +12,9 @@ CURRENCY_CHOICES = [(CURRENCY_USD, "USD"), (CURRENCY_EURO, "EURO")]
 
 
 class EmailNotification(models.Model):
+    auto_responder_email = models.BooleanField(default=False)
+    response_subject = models.TextField(null=True, blank=True)
+    response_message = models.TextField(null=True, blank=True)
     sender_name = models.CharField(max_length=255, null=True, blank=True)
     subject = models.CharField(max_length=255, null=True, blank=True)
     message = models.TextField(null=True, blank=True)
@@ -118,6 +121,7 @@ class WidgetData(models.Model):
     script = models.TextField(null=True, blank=True)
     widget_fields = models.JSONField(default=list)
     sheet_id = models.CharField(max_length=255, blank=True, null=True)
+    enable_google_integration = models.BooleanField(default=False)
     post_submit_action = models.CharField(max_length=20, choices=POST_SUBMIT_ACTION)
     success_msg = models.TextField(blank=True, null=True)
     redirect_url = models.URLField(blank=True, null=True)
@@ -136,6 +140,7 @@ class WidgetData(models.Model):
     user_brand_info = models.OneToOneField(
         UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class WidgetFile(models.Model):
@@ -174,8 +179,12 @@ class SubmitButton(models.Model):
 class FormTemplate(models.Model):
     INLINE = "INLINE"
     FLOATING_PANEL = "FLOATING_PANEL"
-
-    EMBED_TYPE_CHOICES = [(INLINE, "inline"), (FLOATING_PANEL, "floating_panel")]
+    POP_UP = "POP_UP"
+    EMBED_TYPE_CHOICES = [
+        (INLINE, "inline"),
+        (FLOATING_PANEL, "floating_panel"),
+        (POP_UP, "pop_up"),
+    ]
 
     DARK = "DARK"
     LIGHT = "LIGHT"
@@ -196,6 +205,7 @@ class FormTemplate(models.Model):
     )
     accent_color = models.CharField(max_length=50)
     bg_color = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         if not self.header_enabled:
@@ -321,7 +331,7 @@ class Features(models.Model):
         Column, on_delete=models.CASCADE, related_name="features"
     )
     text = models.TextField()
-    icon = models.CharField(max_length=2, default=ICON_NONE, choices=ICON_CHOICES)
+    icon = models.CharField(max_length=2, default=ICON_CHECK, choices=ICON_CHOICES)
     hint = models.TextField(null=True, blank=True)
 
 

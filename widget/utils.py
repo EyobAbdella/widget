@@ -59,14 +59,14 @@ def write_sheet(user, sheet_id, values):
     return result
 
 
-def create_sheet(user):
+def create_sheet(user, title):
     credentials = get_credentials(user)
     if not credentials:
         return None
 
     service = build("sheets", "v4", credentials=credentials)
 
-    spreadsheet = {"properties": {"title": "Widget-Form-Data"}}
+    spreadsheet = {"properties": {"title": title}}
 
     result = (
         service.spreadsheets()

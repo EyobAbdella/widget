@@ -1,9 +1,9 @@
 (function () {
   const staticFileEndpoint = "https://widgetcontact.myfindata.com";
-  // const staticFileEndpoint = "http://localhost:8000";
+  // const staticFileEndpoint = "http://127.0.0.1:8000";
   const RECAPTCHA_SITE_KEY = "6LdL15YqAAAAAJADkgf9Nq9NGS88QA2WFcRtzWmu";
   const endpointUrl = "https://widgetcontact.myfindata.com/widgets";
-  // const endpointUrl = "http://localhost:8000/widgets";
+  // const endpointUrl = "http://127.0.0.1:8000/widgets";
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = `${staticFileEndpoint}/static/style.css`;

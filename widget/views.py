@@ -20,7 +20,6 @@ from .serializers import (
 )
 from .models import (
     FormTemplate,
-    PreFill,
     SubmittedData,
     WidgetData,
     WidgetFile,
@@ -32,143 +31,154 @@ import requests
 
 class WidgetCodeView(APIView):
     def get(self, request, uuid):
-        queryset = WidgetData.objects.get(id=uuid)
-        serializer = WidgetSerializer(
-            queryset, context={"include_email_notification": False, "request": request}
-        )
-
-        return Response(serializer.data)
+        try:
+            widget = WidgetData.objects.get(id=uuid)
+            serializer = WidgetSerializer(
+                widget,
+                context={"include_email_notification": False, "request": request},
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except WidgetData.DoesNotExist:
+            return Response(
+                {"error": "Widget not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
     def post(self, request, uuid):
         try:
             widget = WidgetData.objects.get(id=uuid)
-            recaptcha_token = request.data.get("recaptchaToken")
-            if widget.spam_protection and not recaptcha_token:
-                return Response(
-                    {"error": "Missing reCAPTCHA token"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
             if widget.spam_protection:
-                secret_key = settings.RECAPTCHA_SECRET_KEY
-                url = "https://www.google.com/recaptcha/api/siteverify"
-                response = requests.post(
-                    url, data={"secret": secret_key, "response": recaptcha_token}
-                )
-                result = response.json()
+                recaptcha_token = request.data.get("recaptchaToken")
+                if not recaptcha_token:
+                    return self._error_response("Missing reCAPTCHA token")
+                if not self._validate_recaptcha(recaptcha_token):
+                    return self._error_response("Invalid reCAPTCHA token")
 
-            if not widget.spam_protection or result.get("success"):
-                widget_fields = widget.widget_fields
-                field_values = []
-                errors = {}
+            field_values, errors = self._process_fields(request, widget)
+            if errors:
+                return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
-                for field in widget_fields:
-                    field_id = field["id"]
-                    field_type = field["type"]
-                    is_required = field["required"]
-                    field_label = field.get("label")
-                    value = None
+            self._handle_sheet_integration(widget, field_values)
 
-                    if field_type == "file":
-                        uploaded_files = request.FILES.getlist(field_id)
+            self._send_email_notifications(widget, field_values)
 
-                        if is_required and not uploaded_files:
-                            errors[field_label] = f"{field_label} is required."
-                        else:
-                            if uploaded_files:
-                                widget_file = WidgetFile.objects.create(
-                                    widget=widget, file=uploaded_files[0]
-                                )
-                                value = request.build_absolute_uri(widget_file.file.url)
+            self._save_submitted_data(uuid, field_values)
 
-                    elif field_type:
-                        value = request.data.get(field_id, "").strip()
-                        if field_type == "consent" and is_required and value != "true":
-                            return Response(
-                                {"error": f"This {field_id} required"},
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                        elif field_type != "consent":
-                            field_values.append(
-                                {
-                                    "label": field_label,
-                                    "type": field_type,
-                                    "value": value,
-                                }
-                            )
-
-                    if is_required and not value and field_type != "consent":
-                        errors[field_label] = f"{field_label} is required."
-
-                if errors:
-                    return Response(
-                        {"errors": errors}, status=status.HTTP_400_BAD_REQUEST
-                    )
-                email_receiver = next(
-                    (i for i in field_values if i.get("type") == "email"), None
-                )
-                if widget.sheet_id:
-                    write_sheet(
-                        widget.user,
-                        widget.sheet_id,
-                        [[item["value"] for item in field_values]],
-                    )
-                if not widget.sheet_id:
-                    sheet_id = create_sheet(widget.user)
-
-                    write_sheet(
-                        widget.user,
-                        sheet_id,
-                        [
-                            [item["label"].lower() for item in field_values],
-                            [item["value"] for item in field_values],
-                        ],
-                    )
-                    widget.sheet_id = sheet_id
-                    widget.save()
-
-                user_data = [
-                    f"{i.get('label')}: {i.get('value')}" for i in field_values
-                ]
-                if email_receiver:
-                    send_mail(
-                        "",
-                        "Thank you for submitting the form.",
-                        widget.user,
-                        [email_receiver.get("value")],
-                        fail_silently=False,
-                    )
-                if widget.is_email_notification:
-                    send_mail(
-                        widget.email_notification.subject,  # subject
-                        f"{widget.email_notification.message} \n{user_data}",  # message
-                        widget.email_notification.sender_name,  # sender name
-                        widget.email_notification.email,
-                        fail_silently=False,
-                    )
-                data = {item["label"]: item["value"] for item in field_values}
-                SubmittedData.objects.create(widget_id=uuid, data=data)
-                if widget.post_submit_action == WidgetData.SUCCESS_MESSAGE:
-                    return Response(
-                        {"action": "success_msg", "value": widget.success_msg},
-                        status=status.HTTP_200_OK,
-                    )
-                elif widget.post_submit_action == WidgetData.REDIRECT_TO_URL:
-                    return Response(
-                        {"action": "redirect_url", "value": widget.redirect_url},
-                        status=status.HTTP_200_OK,
-                    )
-                elif widget.post_submit_action == WidgetData.HIDE_FORM:
-                    return Response({"action": "hide_form"}, status=status.HTTP_200_OK)
-            else:
-                return Response(
-                    {"success": False, "error": "Invalid reCAPTCHA token"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            return self._handle_post_submit_action(widget, field_values)
 
         except WidgetData.DoesNotExist:
             return Response(
                 {"error": "Widget not found."}, status=status.HTTP_404_NOT_FOUND
             )
+
+    def _error_response(self, message):
+        return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
+
+    def _validate_recaptcha(self, recaptcha_token):
+        url = "https://www.google.com/recaptcha/api/siteverify"
+        response = requests.post(
+            url,
+            data={"secret": settings.RECAPTCHA_SECRET_KEY, "response": recaptcha_token},
+        )
+        result = response.json()
+        return result.get("success", False)
+
+    def _process_fields(self, request, widget):
+        field_values = []
+        errors = {}
+
+        for field in widget.widget_fields:
+            field_id = field["id"]
+            field_type = field["type"]
+            is_required = field["required"]
+            field_label = field.get("label")
+            value = None
+
+            if field_type == "file":
+                uploaded_files = request.FILES.getlist(field_id)
+                if is_required and not uploaded_files:
+                    errors[field_label] = f"{field_label} is required."
+                elif uploaded_files:
+                    widget_file = WidgetFile.objects.create(
+                        widget=widget, file=uploaded_files[0]
+                    )
+                    value = request.build_absolute_uri(widget_file.file.url)
+
+            else:
+                value = request.data.get(field_id, "").strip()
+                if field_type == "consent" and is_required and value != "true":
+                    errors[field_label] = f"{field_label} is required."
+                elif is_required and not value:
+                    errors[field_label] = f"{field_label} is required."
+                elif field_type != "consent":
+                    field_values.append(
+                        {"label": field_label, "type": field_type, "value": value}
+                    )
+
+        return field_values, errors
+
+    def _handle_sheet_integration(self, widget, field_values):
+        if widget.sheet_id:
+            write_sheet(
+                widget.user,
+                widget.sheet_id,
+                [[item["value"] for item in field_values]],
+            )
+        else:
+            sheet_id = create_sheet(widget.user, widget.name)
+            write_sheet(
+                widget.user,
+                sheet_id,
+                [
+                    [item["label"].lower() for item in field_values],
+                    [item["value"] for item in field_values],
+                ],
+            )
+            widget.sheet_id = sheet_id
+            widget.save()
+
+    def _send_email_notifications(self, widget, field_values):
+        email_receiver = next(
+            (i for i in field_values if i.get("type") == "email"), None
+        )
+        user_data = "\n".join(
+            [f"{item['label']}: {item['value']}" for item in field_values]
+        )
+
+        if email_receiver and widget.email_notification.auto_responder_email:
+            send_mail(
+                widget.email_notification.response_subject,
+                widget.email_notification.response_message,
+                widget.user,
+                [email_receiver.get("value")],
+                fail_silently=False,
+            )
+
+        if widget.is_email_notification:
+            send_mail(
+                widget.email_notification.subject,
+                f"{widget.email_notification.message}\n{user_data}",
+                widget.email_notification.sender_name,
+                widget.email_notification.email,
+                fail_silently=False,
+            )
+
+    def _save_submitted_data(self, uuid, field_values):
+        data = {item["label"]: item["value"] for item in field_values}
+        SubmittedData.objects.create(widget_id=uuid, data=data)
+
+    def _handle_post_submit_action(self, widget, field_values):
+        if widget.post_submit_action == WidgetData.SUCCESS_MESSAGE:
+            return Response(
+                {"action": "success_msg", "value": widget.success_msg},
+                status=status.HTTP_200_OK,
+            )
+        elif widget.post_submit_action == WidgetData.REDIRECT_TO_URL:
+            return Response(
+                {"action": "redirect_url", "value": widget.redirect_url},
+                status=status.HTTP_200_OK,
+            )
+        elif widget.post_submit_action == WidgetData.HIDE_FORM:
+            return Response({"action": "hide_form"}, status=status.HTTP_200_OK)
 
 
 class WidgetViewSet(ModelViewSet):
@@ -218,72 +228,6 @@ class DownloadSubmittedDataView(APIView):
         return response
 
 
-# class PreFillFormViewSet(viewsets.ViewSet):
-#     def create(self, request, *args, **kwargs):
-#         widget_id = self.kwargs.get("widget_pk")
-#         if not widget_id:
-#             return Response({"error": "Widget ID is missing in URL."}, status=400)
-
-#         query_params = request.query_params
-
-#         try:
-#             widget = WidgetData.objects.get(id=widget_id)
-#             widget_fields = widget.widget_fields
-
-#             prefills = PreFill.objects.filter(widget_id=widget_id)
-#             prefill_map = {pre.parameter_name: pre.field_id for pre in prefills}
-
-#             field_map = {field["id"]: field for field in widget_fields}
-
-#             data = []
-
-#             submittedValues = {}
-#             for key, value in query_params.items():
-#                 field_id = prefill_map.get(key)
-#                 if field_id:
-#                     matching_field = field_map.get(field_id)
-
-#                     if matching_field:
-#                         submittedValues[matching_field["label"]] = value
-#                         data.append(
-#                             {
-#                                 matching_field["label"]: value,
-#                             }
-#                         )
-#             if widget.sheet_id:
-#                 write_sheet(
-#                     widget.user,
-#                     widget.sheet_id,
-#                     [[list(d.values())[0] for d in data]],
-#                 )
-#             if not widget.sheet_id:
-#                 sheet_id = create_sheet(widget.user)
-#                 write_sheet(
-#                     widget.user,
-#                     sheet_id,
-#                     [
-#                         [list(d.keys())[0] for d in data],
-#                         [list(d.values())[0] for d in data],
-#                     ],
-#                 )
-#                 widget.sheet_id = sheet_id
-#                 widget.save()
-#                 if widget.is_email_notification:
-#                     send_mail(
-#                         widget.email_notification.subject,  # subject
-#                         f"{widget.email_notification.message} \n{data}",  # message
-#                         widget.email_notification.sender_name,  # sender name
-#                         widget.email_notification.email,
-#                         fail_silently=False,
-#                     )
-#             SubmittedData.objects.create(widget_id=widget_id, data=submittedValues)
-
-#         except WidgetData.DoesNotExist:
-#             return Response({"error": "Widget not found."}, status=404)
-
-#         return Response("", status=200)
-
-
 class SubmittedDataView(viewsets.ModelViewSet):
     http_method_names = ["get"]
     serializer_class = SubmittedDataSerializer
@@ -328,7 +272,6 @@ class ContainerViewSet(ModelViewSet):
         return Container.objects.filter(user_id=user_id)
 
     def get_serializer_class(self):
-        # print(self.request.data)
         if self.request.method in ["POST", "PUT", "PATCH"]:
             return CreateContainerSerializer
         return ContainerSerializer

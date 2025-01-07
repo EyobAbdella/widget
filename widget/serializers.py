@@ -32,7 +32,15 @@ from widget.models import (
 class EmailNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailNotification
-        fields = ["sender_name", "subject", "message", "email"]
+        fields = [
+            "response_message",
+            "response_subject",
+            "auto_responder_email",
+            "sender_name",
+            "subject",
+            "message",
+            "email",
+        ]
 
 
 class AdminBrandInfoSerializer(serializers.ModelSerializer):
