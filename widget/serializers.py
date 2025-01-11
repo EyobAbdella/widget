@@ -2,13 +2,22 @@ from django.conf import settings
 from rest_framework import serializers
 from widget.models import (
     AdminBrandInfo,
+    AppointmentBackground,
+    AppointmentService,
+    AppointmentWidget,
+    AppointmentWidth,
     Background,
     ButtonStyle,
+    DaySchedule,
     DisplaySettings,
     EmailNotification,
+    Footer,
     FormTemplate,
+    IntegrationGoogleSheetsAuth,
+    LabelStyle,
     Link,
     PreFill,
+    SpecialIntervals,
     SubmitButton,
     SubmittedData,
     WidgetData,
@@ -26,6 +35,7 @@ from widget.models import (
     Container,
     PriceAppearance,
     TitleAppearance,
+    WidgetStyle,
 )
 
 
@@ -97,6 +107,7 @@ class DisplaySettingsSerializer(serializers.ModelSerializer):
             "button_text",
             "button_style",
             "background",
+            "button_position",
         ]
 
 
@@ -109,6 +120,36 @@ class PreFillSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         widget_id = self.context.get("widget_id")
         return PreFill.objects.create(widget_id=widget_id, **validated_data)
+
+
+class LabelStyleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LabelStyle
+        fields = ["font_size", "color", "font_weight"]
+
+
+class WidgetStyleSerializer(serializers.ModelSerializer):
+    label_style = LabelStyleSerializer()
+
+    class Meta:
+        model = WidgetStyle
+        fields = [
+            "variant",
+            "background_color",
+            "text_color",
+            "border_color",
+            "border_radius",
+            "border_width",
+            "font_size",
+            "padding",
+            "label_style",
+        ]
+
+
+class FooterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Footer
+        fields = ["enabled", "text", "alignment", "font_size", "text_color"]
 
 
 class WidgetSerializer(serializers.ModelSerializer):
@@ -124,6 +165,8 @@ class WidgetSerializer(serializers.ModelSerializer):
     user_brand_info = UserBrandInfoSerializer()
     script_url = serializers.SerializerMethodField()
     display_settings = DisplaySettingsSerializer()
+    widget_style = WidgetStyleSerializer()
+    footer = FooterSerializer()
 
     class Meta:
         model = WidgetData
@@ -154,6 +197,8 @@ class WidgetSerializer(serializers.ModelSerializer):
             "is_email_notification",
             "user_brand_info",
             "admin_brand_info",
+            "widget_style",
+            "footer",
             "total_submissions",
         ]
         read_only_fields = ["id", "user", "total_submissions", "sheet_id"]
@@ -196,6 +241,21 @@ class WidgetSerializer(serializers.ModelSerializer):
         display_settings_data = validated_data.pop("display_settings", None)
         user_brand_info_data = validated_data.pop("user_brand_info", None)
         user_id = self.context.get("user_id")
+
+        footer_data = validated_data.pop("footer", None)
+        widget_style_data = validated_data.pop("widget_style", None)
+
+        if footer_data:
+            footer = Footer.objects.create(**footer_data)
+            validated_data["footer"] = footer
+
+        if widget_style_data:
+            label_style_data = widget_style_data.pop("label_style", None)
+            if label_style_data:
+                label_style = LabelStyle.objects.create(**label_style_data)
+                widget_style_data["label_style"] = label_style
+            widget_style = WidgetStyle.objects.create(**widget_style_data)
+            validated_data["widget_style"] = widget_style
 
         if display_settings_data:
             background_data = display_settings_data.pop("background", None)
@@ -240,9 +300,39 @@ class WidgetSerializer(serializers.ModelSerializer):
         user_brand_info_data = validated_data.pop("user_brand_info", None)
         pre_fill_data = validated_data.pop("pre_fill", None)
         display_settings_data = validated_data.pop("display_settings", None)
+        footer_data = validated_data.pop("footer", None)
+        widget_style_data = validated_data.pop("widget_style", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        if footer_data:
+            if instance.footer:
+                for attr, value in footer_data.items():
+                    setattr(instance.footer, attr, value)
+                instance.footer.save()
+            else:
+                footer = Footer.objects.create(**footer_data)
+                instance.footer = footer
+
+        if widget_style_data:
+            label_style_data = widget_style_data.pop("label_style", None)
+            if label_style_data:
+                if instance.widget_style and instance.widget_style.label_style:
+                    for attr, value in label_style_data.items():
+                        setattr(instance.widget_style.label_style, attr, value)
+                    instance.widget_style.label_style.save()
+                else:
+                    label_style = LabelStyle.objects.create(**label_style_data)
+                    widget_style_data["label_style"] = label_style
+
+            if instance.widget_style:
+                for attr, value in widget_style_data.items():
+                    setattr(instance.widget_style, attr, value)
+                instance.widget_style.save()
+            else:
+                widget_style = WidgetStyle.objects.create(**widget_style_data)
+                instance.widget_style = widget_style
 
         if email_notification_data:
             if instance.email_notification:
@@ -712,3 +802,91 @@ class ContainerSerializer(serializers.ModelSerializer):
             representation.pop("content_id")
             representation.pop("id")
         return representation
+
+
+# Appointment widget Serializers
+
+
+class DayScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DaySchedule
+        fields = ["day", "is_open", "time_ranges"]
+
+
+class SpecialIntervalsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SpecialIntervals
+        fields = ["type", "start_date", "end_date", "working_hours", "description"]
+
+
+class AppointmentWidthSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentWidth
+        fields = ["full_width", "custom_value"]
+
+
+class AppointmentBackgroundSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentBackground
+        fields = ["color", "border_radius"]
+
+
+class IntegrationGoogleSheetsAuthSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IntegrationGoogleSheetsAuth
+        fields = ["connected", "email"]
+
+
+class AppointmentServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentService
+        fields = ["name", "description", "picture", "duration"]
+
+
+class AppointmentWidgetSerializer(serializers.ModelSerializer):
+    service = AppointmentServiceSerializer()
+    day_schedules = DayScheduleSerializer(many=True)
+    special_intervals = SpecialIntervalsSerializer(many=True)
+    width = AppointmentWidthSerializer()
+    background = AppointmentBackgroundSerializer()
+    integration_google_sheets_auth = IntegrationGoogleSheetsAuthSerializer()
+
+    class Meta:
+        model = AppointmentWidget
+        fields = [
+            "name",
+            "service",
+            "day_schedules",
+            "special_intervals",
+            "min_advance_minutes",
+            "max_advance_days",
+            "time_zone",
+            "display_business_card",
+            "business_name",
+            "business_about",
+            "business_contacts_phone",
+            "business_contacts_email",
+            "business_contacts_address",
+            "business_contacts_website",
+            "business_contacts_whatsapp",
+            "business_contacts_instagram",
+            "business_picture",
+            "business_logo",
+            "embed_type",
+            "trigger_button_position",
+            "trigger_button_text",
+            "trigger_button_icon",
+            "trigger_button_radius",
+            "width",
+            "background",
+            "text_color",
+            "accent_color",
+            "font_url",
+            "client_notification",
+            "owner_notification",
+            "owner_email",
+            "integration_google_sheets",
+            "integration_google_sheets_auth",
+            "integration_google_sheets_id",
+            "created_at",
+        ]

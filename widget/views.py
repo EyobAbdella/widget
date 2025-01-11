@@ -11,6 +11,7 @@ from rest_framework import status
 from .permissions import IsAdminOrReadOnly
 from .utils import create_sheet, write_sheet
 from .serializers import (
+    AppointmentWidgetSerializer,
     FormTemplateSerializer,
     SubmittedDataSerializer,
     WidgetSerializer,
@@ -19,6 +20,7 @@ from .serializers import (
     CreateContainerSerializer,
 )
 from .models import (
+    AppointmentWidget,
     FormTemplate,
     SubmittedData,
     WidgetData,
@@ -287,3 +289,14 @@ class PricingWidgetViewSet(APIView):
             queryset, context={"request": self.request, "view_layout": False}
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# Appointment Widget
+
+
+class AppointmentWidgetViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AppointmentWidgetSerializer
+
+    def get_queryset(self):
+        return AppointmentWidget.objects.filter(user_id=self.request.user.id)

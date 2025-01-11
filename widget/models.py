@@ -1,14 +1,27 @@
 from django.db import models
-from django.core.validators import URLValidator, validate_email, MinValueValidator
+from django.core.validators import (
+    URLValidator,
+    validate_email,
+    MinValueValidator,
+    RegexValidator,
+)
 from django.conf import settings
-from uuid import uuid4
 from django.core.exceptions import ValidationError
+from zoneinfo import available_timezones
+from uuid import uuid4
 import re
+
+from widget.validators import validate_time_ranges
 
 
 CURRENCY_USD = "USD"
 CURRENCY_EURO = "EUR"
 CURRENCY_CHOICES = [(CURRENCY_USD, "USD"), (CURRENCY_EURO, "EURO")]
+
+phone_regex = RegexValidator(
+    regex=r"^\+?1?\d{9,15}$",
+    message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed.",
+)
 
 
 class EmailNotification(models.Model):
@@ -65,6 +78,44 @@ class Background(models.Model):
     file = models.FileField(upload_to="background_files/", blank=True, null=True)
 
 
+class LabelStyle(models.Model):
+    FONT_WEIGHT_CHOICES = [
+        ("normal", "Normal"),
+        ("medium", "Medium"),
+        ("semibold", "SemiBold"),
+        ("bold", "Bold"),
+    ]
+
+    font_size = models.CharField(max_length=50, null=True, blank=True)
+    color = models.CharField(max_length=50, null=True, blank=True)
+    font_weight = models.CharField(
+        max_length=10, choices=FONT_WEIGHT_CHOICES, null=True, blank=True
+    )
+
+
+class WidgetStyle(models.Model):
+    VARIANT_CHOICES = [
+        ("outline", "Outline"),
+        ("filled", "Filled"),
+        ("underline", "Underline"),
+        ("unstyled", "Unstyled"),
+    ]
+
+    variant = models.CharField(
+        max_length=10, choices=VARIANT_CHOICES, null=True, blank=True
+    )
+    background_color = models.CharField(max_length=50, null=True, blank=True)
+    text_color = models.CharField(max_length=50, null=True, blank=True)
+    border_color = models.CharField(max_length=50, null=True, blank=True)
+    border_radius = models.CharField(max_length=50, null=True, blank=True)
+    border_width = models.CharField(max_length=50, null=True, blank=True)
+    font_size = models.CharField(max_length=50, null=True, blank=True)
+    padding = models.CharField(max_length=50, null=True, blank=True)
+    label_style = models.OneToOneField(
+        LabelStyle, on_delete=models.CASCADE, null=True, blank=True
+    )
+
+
 class DisplaySettings(models.Model):
     MODE_CHOICES = [
         ("Inline", "Inline"),
@@ -81,6 +132,15 @@ class DisplaySettings(models.Model):
         ("Left", "Left"),
         ("Right", "Right"),
     ]
+    BUTTON_POSITION_CHOICES = [
+        ("top-right", "Top Right"),
+        ("top-center", "Top Center"),
+        ("top-left", "Top Left"),
+        ("bottom-right", "Bottom Right"),
+        ("bottom-left", "Bottom Left"),
+        ("bottom-center", "Bottom Center"),
+        ("center", "Center"),
+    ]
 
     mode = models.CharField(max_length=10, choices=MODE_CHOICES, null=True, blank=True)
     trigger = models.CharField(
@@ -92,6 +152,25 @@ class DisplaySettings(models.Model):
     button_text = models.CharField(max_length=100, null=True, blank=True)
     button_style = models.OneToOneField(ButtonStyle, on_delete=models.CASCADE)
     background = models.OneToOneField(Background, on_delete=models.CASCADE)
+    button_position = models.CharField(
+        max_length=15, choices=BUTTON_POSITION_CHOICES, null=True, blank=True
+    )
+
+
+class Footer(models.Model):
+    ALIGNMENT_CHOICES = [
+        ("left", "Left"),
+        ("center", "Center"),
+        ("right", "Right"),
+    ]
+
+    enabled = models.BooleanField(default=False, null=True, blank=True)
+    text = models.TextField(null=True, blank=True)
+    alignment = models.CharField(
+        max_length=10, choices=ALIGNMENT_CHOICES, null=True, blank=True
+    )
+    font_size = models.CharField(max_length=50, null=True, blank=True)
+    text_color = models.CharField(max_length=50, null=True, blank=True)
 
 
 class WidgetData(models.Model):
@@ -140,6 +219,10 @@ class WidgetData(models.Model):
     user_brand_info = models.OneToOneField(
         UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True
     )
+    widget_style = models.OneToOneField(
+        WidgetStyle, on_delete=models.SET_NULL, null=True
+    )
+    footer = models.OneToOneField(Footer, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -418,3 +501,153 @@ class Container(models.Model):
 
 
 # Appointment Widget
+
+
+class AppointmentPrice(models.Model):
+    TYPE_FIXED = "FIXED"
+    TYPE_FROM = "FROM"
+    TYPE_FREE = "FREE"
+    TYPE_HIDDEN = "HIDDEN"
+    TYPE_CHOICES = [
+        (TYPE_FIXED, "Fixed"),
+        (TYPE_FROM, "From"),
+        (TYPE_FREE, "Free"),
+        (TYPE_HIDDEN, "Hidden"),
+    ]
+    currency = models.CharField(
+        max_length=3, choices=CURRENCY_CHOICES, default=CURRENCY_USD
+    )
+    type = models.CharField(max_length=6, choices=TYPE_CHOICES, default=TYPE_FIXED)
+    price = models.PositiveIntegerField()
+
+
+class AppointmentService(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    picture = models.ImageField(upload_to="widget")
+    duration = models.PositiveSmallIntegerField()
+
+
+class DaySchedule(models.Model):
+    day = models.CharField(
+        max_length=10,
+        choices=[
+            ("Monday", "Monday"),
+            ("Tuesday", "Tuesday"),
+            ("Wednesday", "Wednesday"),
+            ("Thursday", "Thursday"),
+            ("Friday", "Friday"),
+            ("Saturday", "Saturday"),
+            ("Sunday", "Sunday"),
+        ],
+    )
+    is_open = models.BooleanField(default=True)
+    time_ranges = models.JSONField(default=list, validators=[validate_time_ranges])
+
+
+class SpecialIntervals(models.Model):
+    type = models.CharField(
+        choices=[("specialHours", "specialHours"), ("closed", "closed")], max_length=20
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    working_hours = models.JSONField(default=list, validators=[validate_time_ranges])
+    description = models.TextField()
+
+
+class AppointmentWidth(models.Model):
+    full_width = models.BooleanField()
+    custom_value = models.PositiveIntegerField(null=True, blank=True)
+
+
+class AppointmentBackground(models.Model):
+    color = models.CharField(max_length=10)
+    border_radius = models.PositiveSmallIntegerField()
+
+
+class IntegrationGoogleSheetsAuth(models.Model):
+    connected = models.BooleanField(default=False)
+    email = models.EmailField(null=True, blank=False)
+
+
+class AppointmentWidget(models.Model):
+    TIMEZONE_CHOICES = [(tz, tz) for tz in sorted(available_timezones())]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    service = models.OneToOneField(AppointmentService, on_delete=models.CASCADE)
+    day_schedules = models.ManyToManyField(DaySchedule)
+    special_intervals = models.ManyToManyField(SpecialIntervals)
+    min_advance_minutes = models.PositiveIntegerField()
+    max_advance_days = models.PositiveIntegerField()
+    time_zone = models.CharField(max_length=63, choices=TIMEZONE_CHOICES, default="UTC")
+    display_business_card = models.BooleanField(default=True)
+    business_name = models.CharField(max_length=255)
+    business_about = models.TextField()
+    business_contacts_phone = models.CharField(validators=[phone_regex], max_length=17)
+    business_contacts_email = models.EmailField()
+    business_contacts_address = models.TextField()
+    business_contacts_website = models.URLField()
+    business_contacts_whatsapp = models.CharField(max_length=15)
+    business_contacts_instagram = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+    )
+    business_picture = models.ImageField(upload_to="appointmentWidget")
+    business_logo = models.ImageField(upload_to="appointmentWidget")
+    embed_type = models.CharField(
+        choices=[
+            ("Inline_Form", "inline-form"),
+            ("Inline_Button", "inline-button"),
+            ("Floating_Button", "floating-button"),
+        ],
+        max_length=20,
+    )
+    trigger_button_position = models.CharField(
+        max_length=20,
+        choices=[
+            ("Top", "top"),
+            ("Top_Left", "top-left"),
+            ("Top_Right", "top-right"),
+            ("Left", "left"),
+            ("Right", "right"),
+            ("Bottom", "bottom"),
+            ("Bottom_Left", "bottom-left"),
+            ("Bottom_Right", "bottom-right"),
+        ],
+    )
+    trigger_button_text = models.CharField(max_length=255)
+    trigger_button_icon = models.ImageField(upload_to="appointmentWidget")
+    trigger_button_radius = models.PositiveSmallIntegerField()
+    width = models.OneToOneField(AppointmentWidth, on_delete=models.SET_NULL, null=True)
+    background = models.OneToOneField(
+        AppointmentBackground, on_delete=models.SET_NULL, null=True
+    )
+    text_color = models.CharField(max_length=10)
+    accent_color = models.CharField(max_length=10)
+    font_url = models.URLField(null=True, blank=True)
+    client_notification = models.BooleanField(default=True)
+    owner_notification = models.BooleanField(default=True)
+    owner_email = models.EmailField()
+    integration_google_sheets = models.BooleanField(default=False)
+    integration_google_sheets_auth = models.OneToOneField(
+        IntegrationGoogleSheetsAuth, on_delete=models.SET_NULL, null=True
+    )
+    integration_google_sheets_id = models.CharField(
+        max_length=255, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        if self.business_contacts_instagram:
+            self.validate_instagram_handle
+
+    def validate_instagram_handle(self, value):
+        if not re.match(r"^[A-Za-z0-9._]+$", value):
+            raise ValidationError(
+                "Instagram username can only contain letters, digits, periods, and underscores."
+            )
+        if len(value) < 1 or len(value) > 30:
+            raise ValidationError(
+                "Instagram username must be between 1 and 30 characters."
+            )

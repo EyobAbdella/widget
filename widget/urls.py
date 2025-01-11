@@ -3,13 +3,12 @@ from rest_framework_nested.routers import DefaultRouter, NestedDefaultRouter
 from . import views
 
 router = DefaultRouter()
-router.register("form", views.WidgetViewSet, basename="Widget")
+router.register("form", views.WidgetViewSet, basename="FormWidget")
 router.register("pricing", views.ContainerViewSet, basename="PricingWidget")
 router.register("template", views.FormTemplateViewSet)
-
-# prefill_form = NestedDefaultRouter(router, "form", lookup="widget")
-# prefill_form.register("prefill", views.PreFillFormViewSet, basename="Prefill-Form")
-
+router.register(
+    "appointment", views.AppointmentWidgetViewSet, basename="AppointmentWidget"
+)
 widget_data = NestedDefaultRouter(router, "form", lookup="widget")
 widget_data.register("data", views.SubmittedDataView, basename="Submitted Data")
 
