@@ -35,7 +35,6 @@ from widget.models import (
     Container,
     PriceAppearance,
     TitleAppearance,
-    WidgetStyle,
 )
 
 
