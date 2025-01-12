@@ -150,6 +150,23 @@ class Footer(models.Model):
     text_color = models.CharField(max_length=50, null=True, blank=True)
 
 
+class Theme(models.Model):
+    primary_color = models.CharField(max_length=10)
+    background_color = models.CharField(max_length=10)
+    text_color = models.CharField(max_length=10)
+
+
+class SubmitButton(models.Model):
+    LEFT = "LEFT"
+    CENTER = "CENTER"
+    RIGHT = "RIGHT"
+    ALIGNMENT_CHOICES = [(LEFT, "left"), (CENTER, "center"), (RIGHT, "right")]
+    text = models.CharField(max_length=100)
+    variant = models.CharField(max_length=100)
+    alignment = models.CharField(default=LEFT, max_length=6, choices=ALIGNMENT_CHOICES)
+    size = models.CharField(max_length=10)
+
+
 class WidgetData(models.Model):
     WIDGET_CONTACT_FORM = "CONTACT_US"
     WIDGET_FORM_BUILDER = "FORM"
@@ -196,6 +213,11 @@ class WidgetData(models.Model):
     user_brand_info = models.OneToOneField(
         UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True
     )
+    submit_button = models.OneToOneField(
+        SubmitButton, on_delete=models.SET_NULL, null=True
+    )
+    theme = models.OneToOneField(Theme, on_delete=models.SET_NULL, null=True)
+    default_language = models.CharField(max_length=100)
     footer = models.OneToOneField(Footer, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -222,15 +244,6 @@ class PreFill(models.Model):
     )
     field_id = models.CharField(max_length=100)
     parameter_name = models.CharField(max_length=255)
-
-
-class SubmitButton(models.Model):
-    LEFT = "LEFT"
-    CENTER = "CENTER"
-    RIGHT = "RIGHT"
-    ALIGNMENT_CHOICES = [(LEFT, "left"), (CENTER, "center"), (RIGHT, "right")]
-    text = models.CharField(max_length=100)
-    alignment = models.TextField(default=LEFT, max_length=6, choices=ALIGNMENT_CHOICES)
 
 
 class FormTemplate(models.Model):

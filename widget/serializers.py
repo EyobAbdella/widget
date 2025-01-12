@@ -20,6 +20,7 @@ from widget.models import (
     SpecialIntervals,
     SubmitButton,
     SubmittedData,
+    Theme,
     WidgetData,
     UserBrandInfo,
     # Pricing widget models
@@ -133,6 +134,18 @@ class FooterSerializer(serializers.ModelSerializer):
         fields = ["enabled", "text", "alignment", "font_size", "text_color"]
 
 
+class SubmitButtonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubmitButton
+        fields = ["text", "variant", "alignment", "size"]
+
+
+class ThemeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Theme
+        fields = ["primary_color", "background_color", "text_color"]
+
+
 class WidgetSerializer(serializers.ModelSerializer):
     total_submissions = serializers.SerializerMethodField()
     pre_fill_values = PreFillSerializer(source="pre_fill", many=True, required=False)
@@ -146,6 +159,8 @@ class WidgetSerializer(serializers.ModelSerializer):
     user_brand_info = UserBrandInfoSerializer()
     script_url = serializers.SerializerMethodField()
     display_settings = DisplaySettingsSerializer()
+    submit_button = SubmitButtonSerializer()
+    theme = ThemeSerializer()
     footer = FooterSerializer()
 
     class Meta:
@@ -177,6 +192,9 @@ class WidgetSerializer(serializers.ModelSerializer):
             "is_email_notification",
             "user_brand_info",
             "admin_brand_info",
+            "submit_button",
+            "theme",
+            "default_language",
             "footer",
             "total_submissions",
         ]
@@ -220,8 +238,17 @@ class WidgetSerializer(serializers.ModelSerializer):
         display_settings_data = validated_data.pop("display_settings", None)
         user_brand_info_data = validated_data.pop("user_brand_info", None)
         user_id = self.context.get("user_id")
-
         footer_data = validated_data.pop("footer", None)
+        theme_data = validated_data.pop("theme", None)
+        submit_button_data = validated_data.pop("submit_button", None)
+
+        if theme_data:
+            theme = Theme.objects.create(**theme_data)
+            validated_data["theme"] = theme
+
+        if submit_button_data:
+            submit_button = SubmitButton.objects.create(**submit_button_data)
+            validated_data["submit_button"] = submit_button
 
         if footer_data:
             footer = Footer.objects.create(**footer_data)
@@ -271,9 +298,29 @@ class WidgetSerializer(serializers.ModelSerializer):
         pre_fill_data = validated_data.pop("pre_fill", None)
         display_settings_data = validated_data.pop("display_settings", None)
         footer_data = validated_data.pop("footer", None)
+        theme_data = validated_data.pop("theme", None)
+        submit_button_data = validated_data.pop("submit_button", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        if theme_data:
+            if instance.theme:
+                for attr, value in theme_data.items():
+                    setattr(instance.theme, attr, value)
+                instance.theme.save()
+            else:
+                theme = Theme.objects.create(**theme_data)
+                instance.theme = theme
+
+        if submit_button_data:
+            if instance.submit_button:
+                for attr, value in submit_button_data.items():
+                    setattr(instance.submit_button, attr, value)
+                instance.submit_button.save()
+            else:
+                submit_button = SubmitButton.objects.create(**submit_button_data)
+                instance.submit_button = submit_button
 
         if footer_data:
             if instance.footer:
@@ -360,12 +407,6 @@ class SubmittedDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubmittedData
         fields = ["id", "widget", "data"]
-
-
-class SubmitButtonSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SubmitButton
-        fields = ["text", "alignment"]
 
 
 class FormTemplateSerializer(serializers.ModelSerializer):
