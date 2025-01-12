@@ -128,24 +128,6 @@ class LabelStyleSerializer(serializers.ModelSerializer):
         fields = ["font_size", "color", "font_weight"]
 
 
-class WidgetStyleSerializer(serializers.ModelSerializer):
-    label_style = LabelStyleSerializer()
-
-    class Meta:
-        model = WidgetStyle
-        fields = [
-            "variant",
-            "background_color",
-            "text_color",
-            "border_color",
-            "border_radius",
-            "border_width",
-            "font_size",
-            "padding",
-            "label_style",
-        ]
-
-
 class FooterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Footer
@@ -165,7 +147,6 @@ class WidgetSerializer(serializers.ModelSerializer):
     user_brand_info = UserBrandInfoSerializer()
     script_url = serializers.SerializerMethodField()
     display_settings = DisplaySettingsSerializer()
-    widget_style = WidgetStyleSerializer()
     footer = FooterSerializer()
 
     class Meta:
@@ -197,7 +178,6 @@ class WidgetSerializer(serializers.ModelSerializer):
             "is_email_notification",
             "user_brand_info",
             "admin_brand_info",
-            "widget_style",
             "footer",
             "total_submissions",
         ]
@@ -243,19 +223,10 @@ class WidgetSerializer(serializers.ModelSerializer):
         user_id = self.context.get("user_id")
 
         footer_data = validated_data.pop("footer", None)
-        widget_style_data = validated_data.pop("widget_style", None)
 
         if footer_data:
             footer = Footer.objects.create(**footer_data)
             validated_data["footer"] = footer
-
-        if widget_style_data:
-            label_style_data = widget_style_data.pop("label_style", None)
-            if label_style_data:
-                label_style = LabelStyle.objects.create(**label_style_data)
-                widget_style_data["label_style"] = label_style
-            widget_style = WidgetStyle.objects.create(**widget_style_data)
-            validated_data["widget_style"] = widget_style
 
         if display_settings_data:
             background_data = display_settings_data.pop("background", None)
@@ -301,7 +272,6 @@ class WidgetSerializer(serializers.ModelSerializer):
         pre_fill_data = validated_data.pop("pre_fill", None)
         display_settings_data = validated_data.pop("display_settings", None)
         footer_data = validated_data.pop("footer", None)
-        widget_style_data = validated_data.pop("widget_style", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -314,25 +284,6 @@ class WidgetSerializer(serializers.ModelSerializer):
             else:
                 footer = Footer.objects.create(**footer_data)
                 instance.footer = footer
-
-        if widget_style_data:
-            label_style_data = widget_style_data.pop("label_style", None)
-            if label_style_data:
-                if instance.widget_style and instance.widget_style.label_style:
-                    for attr, value in label_style_data.items():
-                        setattr(instance.widget_style.label_style, attr, value)
-                    instance.widget_style.label_style.save()
-                else:
-                    label_style = LabelStyle.objects.create(**label_style_data)
-                    widget_style_data["label_style"] = label_style
-
-            if instance.widget_style:
-                for attr, value in widget_style_data.items():
-                    setattr(instance.widget_style, attr, value)
-                instance.widget_style.save()
-            else:
-                widget_style = WidgetStyle.objects.create(**widget_style_data)
-                instance.widget_style = widget_style
 
         if email_notification_data:
             if instance.email_notification:

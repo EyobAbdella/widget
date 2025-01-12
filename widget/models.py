@@ -93,29 +93,6 @@ class LabelStyle(models.Model):
     )
 
 
-class WidgetStyle(models.Model):
-    VARIANT_CHOICES = [
-        ("outline", "Outline"),
-        ("filled", "Filled"),
-        ("underline", "Underline"),
-        ("unstyled", "Unstyled"),
-    ]
-
-    variant = models.CharField(
-        max_length=10, choices=VARIANT_CHOICES, null=True, blank=True
-    )
-    background_color = models.CharField(max_length=50, null=True, blank=True)
-    text_color = models.CharField(max_length=50, null=True, blank=True)
-    border_color = models.CharField(max_length=50, null=True, blank=True)
-    border_radius = models.CharField(max_length=50, null=True, blank=True)
-    border_width = models.CharField(max_length=50, null=True, blank=True)
-    font_size = models.CharField(max_length=50, null=True, blank=True)
-    padding = models.CharField(max_length=50, null=True, blank=True)
-    label_style = models.OneToOneField(
-        LabelStyle, on_delete=models.CASCADE, null=True, blank=True
-    )
-
-
 class DisplaySettings(models.Model):
     MODE_CHOICES = [
         ("Inline", "Inline"),
@@ -218,9 +195,6 @@ class WidgetData(models.Model):
     is_email_notification = models.BooleanField(default=False)
     user_brand_info = models.OneToOneField(
         UserBrandInfo, on_delete=models.CASCADE, null=True, blank=True
-    )
-    widget_style = models.OneToOneField(
-        WidgetStyle, on_delete=models.SET_NULL, null=True
     )
     footer = models.OneToOneField(Footer, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
