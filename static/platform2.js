@@ -28,113 +28,6 @@
     return;
   }
 
-  function initializeSignaturePad(container) {
-    const signaturePads = container.querySelectorAll(
-      ".signature-pad-container"
-    );
-
-    signaturePads.forEach((container) => {
-      const canvas = container.querySelector("canvas");
-      const ctx = canvas.getContext("2d");
-      let isDrawing = false;
-      let lastX = 0;
-      let lastY = 0;
-
-      // Set canvas size with proper scaling
-      function resizeCanvas() {
-        const rect = canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = 2;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-      }
-
-      // Initialize canvas
-      resizeCanvas();
-      window.addEventListener("resize", resizeCanvas);
-
-      // Convert coordinates to canvas space
-      function getCanvasCoordinates(e) {
-        const rect = canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        const x =
-          ((e.clientX || e.touches[0].clientX) - rect.left) *
-          (canvas.width / rect.width / dpr);
-        const y =
-          ((e.clientY || e.touches[0].clientY) - rect.top) *
-          (canvas.height / rect.height / dpr);
-        return { x, y };
-      }
-
-      // Drawing functions
-      function startDrawing(e) {
-        isDrawing = true;
-        const coords = getCanvasCoordinates(e);
-        lastX = coords.x;
-        lastY = coords.y;
-      }
-
-      function draw(e) {
-        if (!isDrawing) return;
-        e.preventDefault();
-
-        const coords = getCanvasCoordinates(e);
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(coords.x, coords.y);
-        ctx.stroke();
-        lastX = coords.x;
-        lastY = coords.y;
-      }
-
-      function stopDrawing() {
-        isDrawing = false;
-        // Save signature data
-        const input = container.querySelector('input[type="hidden"]');
-        if (input) {
-          input.value = canvas.toDataURL();
-          // Trigger change event for form handling
-          const event = new Event("change", { bubbles: true });
-          input.dispatchEvent(event);
-        }
-      }
-
-      // Event listeners
-      canvas.addEventListener("mousedown", startDrawing);
-      canvas.addEventListener("mousemove", draw);
-      canvas.addEventListener("mouseup", stopDrawing);
-      canvas.addEventListener("mouseout", stopDrawing);
-      canvas.addEventListener("touchstart", startDrawing);
-      canvas.addEventListener("touchmove", draw);
-      canvas.addEventListener("touchend", stopDrawing);
-
-      // Prevent scrolling while drawing
-      canvas.addEventListener("touchstart", (e) => e.preventDefault());
-      canvas.addEventListener("touchmove", (e) => e.preventDefault());
-      canvas.addEventListener("touchend", (e) => e.preventDefault());
-
-      // Add clear button functionality
-      const clearButton = container.nextElementSibling?.querySelector(
-        ".signature-clear-button"
-      );
-      if (clearButton) {
-        clearButton.addEventListener("click", () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          const input = container.querySelector('input[type="hidden"]');
-          if (input) {
-            input.value = "";
-            const event = new Event("change", { bubbles: true });
-            input.dispatchEvent(event);
-          }
-        });
-      }
-    });
-  }
-
   function submitFormDataWithFiles(url, formData) {
     return fetch(`${url}/${uuid}`, {
       method: "POST",
@@ -239,9 +132,6 @@
             originalId,
             Array.from(choices).map((checkbox) => checkbox.value)
           );
-        } else if (type === "signature") {
-          const signatureInput = element.querySelector('input[type="hidden"]');
-          formData.append(originalId, signatureInput.value);
         } else {
           formData.append(originalId, element.value.trim());
         }
@@ -324,9 +214,6 @@
 
         widgetDiv.innerHTML = res.html;
 
-        // Initialize signature pads after loading widget
-        initializeSignaturePad(widgetDiv);
-
         const preFillValues = res.pre_fill_values;
         const spam_protection = res.spam_protection;
 
@@ -366,7 +253,7 @@
         const form = widgetDiv.querySelector("form");
         const fields = Array.from(
           form.querySelectorAll(
-            "[role='radiogroup'], [data-type='multiple_choice'], [data-type='consent'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea, .signature-pad-container"
+            "[role='radiogroup'], [data-type='multiple_choice'], [data-type='consent'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea"
           )
         ).map((element) => {
           return {
@@ -377,7 +264,7 @@
               element.getAttribute("data-type") ||
               (element.tagName.toLowerCase() === "textarea"
                 ? "textarea"
-                : element.getAttribute("type") || "signature"),
+                : element.getAttribute("type")),
           };
         });
 
