@@ -44,9 +44,19 @@
       function resizeCanvas() {
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
+
+        // Set canvas display size (CSS pixels)
+        canvas.style.width = "100%";
+        canvas.style.height = "200px";
+
+        // Set canvas buffer size (actual pixels)
         canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
+        canvas.height = 200 * dpr;
+
+        // Scale the context to handle device pixel ratio
         ctx.scale(dpr, dpr);
+
+        // Set drawing styles
         ctx.strokeStyle = "#000";
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
@@ -57,20 +67,24 @@
       resizeCanvas();
       window.addEventListener("resize", resizeCanvas);
 
-      // Convert coordinates to canvas space
+      // Convert page coordinates to canvas coordinates
       function getCanvasCoordinates(e) {
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        const x =
-          ((e.clientX || e.touches[0].clientX) - rect.left) *
-          (canvas.width / rect.width / dpr);
-        const y =
-          ((e.clientY || e.touches[0].clientY) - rect.top) *
-          (canvas.height / rect.height / dpr);
-        return { x, y };
+
+        // Get the touch/mouse position
+        const clientX =
+          e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const clientY =
+          e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
+        // Calculate the position relative to the canvas
+        return {
+          x: (((clientX - rect.left) / rect.width) * canvas.width) / dpr,
+          y: (((clientY - rect.top) / rect.height) * canvas.height) / dpr,
+        };
       }
 
-      // Drawing functions
       function startDrawing(e) {
         isDrawing = true;
         const coords = getCanvasCoordinates(e);
@@ -83,41 +97,66 @@
         e.preventDefault();
 
         const coords = getCanvasCoordinates(e);
+
+        // Draw line
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
         ctx.lineTo(coords.x, coords.y);
         ctx.stroke();
+
         lastX = coords.x;
         lastY = coords.y;
       }
 
       function stopDrawing() {
+        if (!isDrawing) return;
         isDrawing = false;
+
         // Save signature data
         const input = container.querySelector('input[type="hidden"]');
         if (input) {
           input.value = canvas.toDataURL();
-          // Trigger change event for form handling
+          // Trigger change event
           const event = new Event("change", { bubbles: true });
           input.dispatchEvent(event);
         }
       }
 
-      // Event listeners
+      // Mouse event listeners
       canvas.addEventListener("mousedown", startDrawing);
       canvas.addEventListener("mousemove", draw);
       canvas.addEventListener("mouseup", stopDrawing);
       canvas.addEventListener("mouseout", stopDrawing);
-      canvas.addEventListener("touchstart", startDrawing);
-      canvas.addEventListener("touchmove", draw);
-      canvas.addEventListener("touchend", stopDrawing);
 
-      // Prevent scrolling while drawing
-      canvas.addEventListener("touchstart", (e) => e.preventDefault());
-      canvas.addEventListener("touchmove", (e) => e.preventDefault());
-      canvas.addEventListener("touchend", (e) => e.preventDefault());
+      // Touch event listeners with passive: false to prevent scrolling
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          e.preventDefault();
+          startDrawing(e.touches[0]);
+        },
+        { passive: false }
+      );
 
-      // Add clear button functionality
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+          draw(e.touches[0]);
+        },
+        { passive: false }
+      );
+
+      canvas.addEventListener(
+        "touchend",
+        (e) => {
+          e.preventDefault();
+          stopDrawing();
+        },
+        { passive: false }
+      );
+
+      // Clear button functionality
       const clearButton = container.nextElementSibling?.querySelector(
         ".signature-clear-button"
       );
