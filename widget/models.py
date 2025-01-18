@@ -370,6 +370,42 @@ class Content(models.Model):
     pass
 
 
+class PricingCustomPictureSize(models.Model):
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+
+
+class PricingWidgetImageSettings(models.Model):
+    is_background = models.BooleanField(default=False)
+    size = models.CharField(
+        choices=[
+            ("SMALL", "SMALL"),
+            ("LARGE", "SMALL"),
+            ("MEDIUM", "MEDIUM"),
+            ("CUSTOM", "CUSTOM"),
+        ],
+        max_length=10,
+    )
+    custom_size = models.OneToOneField(
+        PricingCustomPictureSize, on_delete=models.SET_NULL, null=True
+    )
+    position = models.CharField(
+        max_length=10, choices=[("TOP", "TOP"), ("BOTTOM", "BOTTOM")]
+    )
+    priority = models.CharField(
+        max_length=20,
+        choices=[("ABOVE_RIBBON", "ABOVE_RIBBON"), ("BELOW_RIBBON", ("BELOW_RIBBON"))],
+    )
+    fit = models.CharField(
+        max_length=10,
+        choices=[("COVER", "COVER"), ("CONTAIN", "CONTAIN"), ("FILL", "FILL")],
+    )
+    alignment = models.CharField(
+        max_length=10,
+        choices=[("LEFT", "LEFT"), ("CENTER", "CENTER"), ("RIGHT", "RIGHT")],
+    )
+
+
 class Column(models.Model):
     content = models.ForeignKey(
         Content, on_delete=models.CASCADE, related_name="columns"
@@ -379,6 +415,9 @@ class Column(models.Model):
     price = models.OneToOneField(Price, on_delete=models.SET_NULL, null=True)
     button = models.OneToOneField(Button, on_delete=models.SET_NULL, null=True)
     picture = models.ImageField(upload_to="widget", null=True, blank=True)
+    image_settings = models.OneToOneField(
+        PricingWidgetImageSettings, on_delete=models.SET_NULL, null=True
+    )
     featured_column = models.BooleanField(default=False)
     ribbon_text = models.CharField(max_length=100, null=True, blank=True)
     skin_color = models.CharField(max_length=100, default="#000")
@@ -552,13 +591,10 @@ class AppointmentBackground(models.Model):
     border_radius = models.PositiveSmallIntegerField()
 
 
-class IntegrationGoogleSheetsAuth(models.Model):
-    connected = models.BooleanField(default=False)
-    email = models.EmailField(null=True, blank=False)
-
-
 class AppointmentWidget(models.Model):
     TIMEZONE_CHOICES = [(tz, tz) for tz in sorted(available_timezones())]
+
+    id = models.UUIDField(default=uuid4, primary_key=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     service = models.OneToOneField(AppointmentService, on_delete=models.CASCADE)
@@ -617,9 +653,6 @@ class AppointmentWidget(models.Model):
     owner_notification = models.BooleanField(default=True)
     owner_email = models.EmailField()
     integration_google_sheets = models.BooleanField(default=False)
-    integration_google_sheets_auth = models.OneToOneField(
-        IntegrationGoogleSheetsAuth, on_delete=models.SET_NULL, null=True
-    )
     integration_google_sheets_id = models.CharField(
         max_length=255, null=True, blank=True
     )

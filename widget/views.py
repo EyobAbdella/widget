@@ -300,3 +300,6 @@ class AppointmentWidgetViewSet(ModelViewSet):
 
     def get_queryset(self):
         return AppointmentWidget.objects.filter(user_id=self.request.user.id)
+
+    def get_serializer_context(self):
+        return {"request": self.request}

@@ -13,10 +13,11 @@ from widget.models import (
     EmailNotification,
     Footer,
     FormTemplate,
-    IntegrationGoogleSheetsAuth,
     LabelStyle,
     Link,
     PreFill,
+    PricingCustomPictureSize,
+    PricingWidgetImageSettings,
     SpecialIntervals,
     SubmitButton,
     SubmittedData,
@@ -472,6 +473,57 @@ class LayoutSerializer(serializers.ModelSerializer):
         ]
 
 
+class PricingCustomPictureSizeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingCustomPictureSize
+        fields = ["width", "height"]
+
+
+class PricingWidgetImageSettingsSerializer(serializers.ModelSerializer):
+    custom_size = PricingCustomPictureSizeSerializer(required=False)
+
+    class Meta:
+        model = PricingWidgetImageSettings
+        fields = [
+            "is_background",
+            "size",
+            "custom_size",
+            "position",
+            "priority",
+            "fit",
+            "alignment",
+        ]
+
+    def create(self, validated_data):
+        custom_size_data = validated_data.pop("custom_size", None)
+        custom_size = (
+            PricingCustomPictureSize.objects.create(**custom_size_data)
+            if custom_size_data
+            else None
+        )
+        return PricingWidgetImageSettings.objects.create(
+            custom_size=custom_size, **validated_data
+        )
+
+    def update(self, instance, validated_data):
+        custom_size_data = validated_data.pop("custom_size", None)
+
+        if custom_size_data:
+            if instance.custom_size:
+                for attr, value in custom_size_data.items():
+                    setattr(instance.custom_size, attr, value)
+                instance.custom_size.save()
+            else:
+                instance.custom_size = PricingCustomPictureSize.objects.create(
+                    **custom_size_data
+                )
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
 class TitleAppearanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = TitleAppearance
@@ -565,18 +617,31 @@ class CreateContentSerializer(serializers.Serializer):
     ribbon_text = serializers.CharField(required=False)
     features = serializers.ListField(child=FeaturesSerializer(), required=False)
     picture = serializers.ImageField(required=False, allow_null=True)
+    image_settings = PricingWidgetImageSettingsSerializer(required=False)
     skin_color = serializers.CharField(required=False)
 
     def create(self, validated_data):
         price_data = validated_data.pop("price", None)
         button_data = validated_data.pop("button", None)
         features_data = validated_data.pop("features", [])
+        image_settings_data = validated_data.pop("image_settings", None)
 
         price = Price.objects.create(**price_data) if price_data else None
         button_serializer = ButtonSerializer(data=button_data)
         button_serializer.is_valid(raise_exception=True)
         button = button_serializer.save()
-        column = Column.objects.create(price=price, button=button, **validated_data)
+
+        image_settings = None
+        if image_settings_data:
+            image_settings_serializer = PricingWidgetImageSettingsSerializer(
+                data=image_settings_data
+            )
+            image_settings_serializer.is_valid(raise_exception=True)
+            image_settings = image_settings_serializer.save()
+
+        column = Column.objects.create(
+            price=price, button=button, image_settings=image_settings, **validated_data
+        )
 
         for feature_data in features_data:
             Features.objects.create(column=column, **feature_data)
@@ -587,6 +652,7 @@ class CreateContentSerializer(serializers.Serializer):
         price_data = validated_data.pop("price", None)
         button_data = validated_data.pop("button", None)
         features_data = validated_data.pop("features", [])
+        image_settings_data = validated_data.pop("image_settings", None)
 
         if price_data:
             if instance.price:
@@ -602,6 +668,13 @@ class CreateContentSerializer(serializers.Serializer):
             )
             button_serializer.is_valid(raise_exception=True)
             instance.button = button_serializer.save()
+
+        if image_settings_data:
+            image_settings_serializer = PricingWidgetImageSettingsSerializer(
+                instance=instance.image_settings, data=image_settings_data
+            )
+            image_settings_serializer.is_valid(raise_exception=True)
+            instance.image_settings = image_settings_serializer.save()
 
         instance.features.all().delete()
         for feature_data in features_data:
@@ -744,6 +817,7 @@ class ColumnSerializer(serializers.ModelSerializer):
     price = PriceSerializer()
     button = ButtonSerializer()
     features = FeaturesSerializer(many=True)
+    image_settings = PricingWidgetImageSettingsSerializer()
 
     class Meta:
         model = Column
@@ -754,6 +828,7 @@ class ColumnSerializer(serializers.ModelSerializer):
             "price",
             "button",
             "picture",
+            "image_settings",
             "features",
             "featured_column",
             "ribbon_text",
@@ -801,13 +876,20 @@ class ContainerSerializer(serializers.ModelSerializer):
 class DayScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = DaySchedule
-        fields = ["day", "is_open", "time_ranges"]
+        fields = ["id", "day", "is_open", "time_ranges"]
 
 
 class SpecialIntervalsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SpecialIntervals
-        fields = ["type", "start_date", "end_date", "working_hours", "description"]
+        fields = [
+            "id",
+            "type",
+            "start_date",
+            "end_date",
+            "working_hours",
+            "description",
+        ]
 
 
 class AppointmentWidthSerializer(serializers.ModelSerializer):
@@ -822,12 +904,6 @@ class AppointmentBackgroundSerializer(serializers.ModelSerializer):
         fields = ["color", "border_radius"]
 
 
-class IntegrationGoogleSheetsAuthSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IntegrationGoogleSheetsAuth
-        fields = ["connected", "email"]
-
-
 class AppointmentServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppointmentService
@@ -835,16 +911,18 @@ class AppointmentServiceSerializer(serializers.ModelSerializer):
 
 
 class AppointmentWidgetSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
     service = AppointmentServiceSerializer()
     day_schedules = DayScheduleSerializer(many=True)
     special_intervals = SpecialIntervalsSerializer(many=True)
     width = AppointmentWidthSerializer()
     background = AppointmentBackgroundSerializer()
-    integration_google_sheets_auth = IntegrationGoogleSheetsAuthSerializer()
+    integration_google_sheets_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = AppointmentWidget
         fields = [
+            "id",
             "name",
             "service",
             "day_schedules",
@@ -877,7 +955,93 @@ class AppointmentWidgetSerializer(serializers.ModelSerializer):
             "owner_notification",
             "owner_email",
             "integration_google_sheets",
-            "integration_google_sheets_auth",
             "integration_google_sheets_id",
             "created_at",
         ]
+
+    def create(self, validated_data):
+        user = self.context.get("request").user
+        service_data = validated_data.pop("service")
+        day_schedules_data = validated_data.pop("day_schedules", [])
+        special_intervals_data = validated_data.pop("special_intervals", [])
+        width_data = validated_data.pop("width", None)
+        background_data = validated_data.pop("background", None)
+
+        service = AppointmentService.objects.create(**service_data)
+
+        width = None
+        if width_data:
+            width = AppointmentWidth.objects.create(**width_data)
+
+        background = None
+        if background_data:
+            background = AppointmentBackground.objects.create(**background_data)
+
+        appointment_widget = AppointmentWidget.objects.create(
+            user=user,
+            service=service,
+            width=width,
+            background=background,
+            **validated_data,
+        )
+
+        for day_schedule_data in day_schedules_data:
+            print(day_schedule_data)
+            day_schedule = DaySchedule.objects.create(**day_schedule_data)
+            appointment_widget.day_schedules.add(day_schedule)
+
+        for special_interval_data in special_intervals_data:
+            special_interval = SpecialIntervals.objects.create(**special_interval_data)
+            appointment_widget.special_intervals.add(special_interval)
+
+        return appointment_widget
+
+    def update(self, instance, validated_data):
+        service_data = validated_data.pop("service", None)
+        day_schedules_data = validated_data.pop("day_schedules", [])
+        special_intervals_data = validated_data.pop("special_intervals", [])
+        width_data = validated_data.pop("width", None)
+        background_data = validated_data.pop("background", None)
+
+        if service_data:
+            for attr, value in service_data.items():
+                setattr(instance.service, attr, value)
+            instance.service.save()
+
+        if width_data:
+            if instance.width:
+                for attr, value in width_data.items():
+                    setattr(instance.width, attr, value)
+                instance.width.save()
+            else:
+                instance.width = AppointmentWidth.objects.create(**width_data)
+
+        if background_data:
+            if instance.background:
+                for attr, value in background_data.items():
+                    setattr(instance.background, attr, value)
+                instance.background.save()
+            else:
+                instance.background = AppointmentBackground.objects.create(
+                    **background_data
+                )
+
+        if day_schedules_data:
+            instance.day_schedules.clear()
+            for day_schedule_data in day_schedules_data:
+                day_schedule = DaySchedule.objects.create(**day_schedule_data)
+                instance.day_schedules.add(day_schedule)
+
+        if special_intervals_data:
+            instance.special_intervals.clear()
+            for special_interval_data in special_intervals_data:
+                special_interval = SpecialIntervals.objects.create(
+                    **special_interval_data
+                )
+                instance.special_intervals.add(special_interval)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
