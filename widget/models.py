@@ -552,6 +552,7 @@ class AppointmentService(models.Model):
     description = models.TextField()
     picture = models.ImageField(upload_to="widget")
     duration = models.PositiveSmallIntegerField()
+    price = models.OneToOneField(AppointmentPrice, on_delete=models.CASCADE)
 
 
 class DaySchedule(models.Model):

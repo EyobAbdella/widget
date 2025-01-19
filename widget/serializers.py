@@ -3,6 +3,7 @@ from rest_framework import serializers
 from widget.models import (
     AdminBrandInfo,
     AppointmentBackground,
+    AppointmentPrice,
     AppointmentService,
     AppointmentWidget,
     AppointmentWidth,
@@ -873,6 +874,12 @@ class ContainerSerializer(serializers.ModelSerializer):
 # Appointment widget Serializers
 
 
+class AppointmentPriceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentPrice
+        fields = ["currency", "type", "price"]
+
+
 class DayScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = DaySchedule
@@ -905,9 +912,11 @@ class AppointmentBackgroundSerializer(serializers.ModelSerializer):
 
 
 class AppointmentServiceSerializer(serializers.ModelSerializer):
+    price = AppointmentPriceSerializer()
+
     class Meta:
         model = AppointmentService
-        fields = ["name", "description", "picture", "duration"]
+        fields = ["name", "description", "picture", "duration", "price"]
 
 
 class AppointmentWidgetSerializer(serializers.ModelSerializer):
@@ -966,8 +975,10 @@ class AppointmentWidgetSerializer(serializers.ModelSerializer):
         special_intervals_data = validated_data.pop("special_intervals", [])
         width_data = validated_data.pop("width", None)
         background_data = validated_data.pop("background", None)
+        price_data = service_data.pop("price", None)
 
-        service = AppointmentService.objects.create(**service_data)
+        price = AppointmentPrice.objects.create(**price_data)
+        service = AppointmentService.objects.create(**service_data, price=price)
 
         width = None
         if width_data:
@@ -1004,6 +1015,13 @@ class AppointmentWidgetSerializer(serializers.ModelSerializer):
         background_data = validated_data.pop("background", None)
 
         if service_data:
+            price_data = service_data.pop("price", None)
+
+            if price_data:
+                for attr, value in price_data.items():
+                    setattr(instance.service.price, attr, value)
+                instance.service.price.save()
+
             for attr, value in service_data.items():
                 setattr(instance.service, attr, value)
             instance.service.save()
