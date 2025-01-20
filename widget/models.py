@@ -544,7 +544,9 @@ class AppointmentPrice(models.Model):
         max_length=3, choices=CURRENCY_CHOICES, default=CURRENCY_USD
     )
     type = models.CharField(max_length=6, choices=TYPE_CHOICES, default=TYPE_FIXED)
-    price = models.PositiveIntegerField()
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[MinValueValidator(0)]
+    )
 
 
 class AppointmentService(models.Model):
