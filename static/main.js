@@ -1,6 +1,6 @@
 (function () {
-  const staticEndpoint = "http://127.0.0.1:8000/static";
-  const endpointURL = "http://127.0.0.1:8000/widgets";
+  const staticEndpoint = "https://widgetcontact.myfindata.com/static";
+  const endpointURL = "https://widgetcontact.myfindata.com/widgets";
 
   const link = document.createElement("link");
   link.rel = "stylesheet";
