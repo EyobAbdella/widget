@@ -3,6 +3,7 @@ from rest_framework import serializers
 from widget.models import (
     AdminBrandInfo,
     AppointmentBackground,
+    AppointmentData,
     AppointmentPrice,
     AppointmentService,
     AppointmentWidget,
@@ -87,13 +88,14 @@ class ButtonStyleSerializers(serializers.ModelSerializer):
             "border_radius",
             "padding",
             "font_size",
+            "hover_background_color",
         ]
 
 
 class BackgroundSerializers(serializers.ModelSerializer):
     class Meta:
         model = Background
-        fields = ["type", "value", "opacity", "file"]
+        fields = ["type", "value", "opacity", "file", "auto_play", "muted", "loop"]
 
 
 class DisplaySettingsSerializer(serializers.ModelSerializer):
@@ -110,6 +112,9 @@ class DisplaySettingsSerializer(serializers.ModelSerializer):
             "button_style",
             "background",
             "button_position",
+            "delay",
+            "scroll_percentage",
+            "show_once",
         ]
 
 
@@ -1063,3 +1068,15 @@ class AppointmentWidgetSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class AppointmentDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentData
+        fields = ["id", "date", "name", "email", "notes"]
+
+    def create(self, validated_data):
+        appointment_id = self.context.get("appointment_id")
+        return AppointmentData.objects.create(
+            appointment_id=appointment_id, **validated_data
+        )

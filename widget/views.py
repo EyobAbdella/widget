@@ -11,6 +11,7 @@ from rest_framework import status
 from .permissions import IsAdminOrReadOnly
 from .utils import create_sheet, write_sheet
 from .serializers import (
+    AppointmentDataSerializer,
     AppointmentWidgetSerializer,
     FormTemplateSerializer,
     SubmittedDataSerializer,
@@ -303,3 +304,33 @@ class AppointmentWidgetViewSet(ModelViewSet):
 
     def get_serializer_context(self):
         return {"request": self.request}
+
+
+class AppointmentViewSet(APIView):
+    def get(self, request, uuid):
+        try:
+            queryset = AppointmentWidget.objects.get(id=uuid)
+        except AppointmentWidget.DoesNotExist:
+            return Response(
+                {"error": "widget doesn't exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = AppointmentWidgetSerializer(queryset, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, uuid):
+        try:
+            queryset = AppointmentWidget.objects.get(id=uuid)
+            serializers = AppointmentDataSerializer(
+                data=request.data, context={"appointment_id": uuid}
+            )
+            serializers.is_valid(raise_exception=True)
+            serializers.save()
+            return Response(
+                {"message": "Appointment data saved successfully."},
+                status=status.HTTP_201_CREATED,
+            )
+        except AppointmentWidget.DoesNotExist:
+            return Response(
+                {"error": "Appointment Widget not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )

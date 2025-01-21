@@ -14,6 +14,7 @@ widget_data.register("data", views.SubmittedDataView, basename="Submitted Data")
 
 urlpatterns = [
     path("<uuid:uuid>", views.WidgetCodeView.as_view()),
+    path("booking/<uuid:uuid>", views.AppointmentViewSet.as_view()),
     path("script/<uuid:uuid>.js", views.ServeScriptView.as_view()),
     path("pr/<uuid:uuid>", views.PricingWidgetViewSet.as_view()),
     path(

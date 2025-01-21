@@ -4,6 +4,7 @@ from django.core.validators import (
     validate_email,
     MinValueValidator,
     RegexValidator,
+    MaxValueValidator,
 )
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -63,6 +64,7 @@ class ButtonStyle(models.Model):
     border_radius = models.CharField(max_length=50, blank=True, null=True)
     padding = models.CharField(max_length=50, blank=True, null=True)
     font_size = models.CharField(max_length=50, blank=True, null=True)
+    hover_background_color = models.CharField(max_length=10, blank=True, null=True)
 
 
 class Background(models.Model):
@@ -76,6 +78,9 @@ class Background(models.Model):
     value = models.TextField(blank=True, null=True)
     opacity = models.FloatField(blank=True, null=True)
     file = models.FileField(upload_to="background_files/", blank=True, null=True)
+    auto_play = models.BooleanField(default=False)
+    muted = models.BooleanField(default=False)
+    loop = models.BooleanField(default=False)
 
 
 class LabelStyle(models.Model):
@@ -132,6 +137,9 @@ class DisplaySettings(models.Model):
     button_position = models.CharField(
         max_length=15, choices=BUTTON_POSITION_CHOICES, null=True, blank=True
     )
+    delay = models.PositiveIntegerField()
+    scroll_percentage = models.PositiveIntegerField(validators=[MaxValueValidator(100)])
+    show_once = models.BooleanField(default=True)
 
 
 class Footer(models.Model):
@@ -674,3 +682,13 @@ class AppointmentWidget(models.Model):
             raise ValidationError(
                 "Instagram username must be between 1 and 30 characters."
             )
+
+
+class AppointmentData(models.Model):
+    appointment = models.ForeignKey(
+        AppointmentWidget, on_delete=models.CASCADE, related_name="appointment_data"
+    )
+    date = models.DateTimeField()
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    notes = models.TextField()
