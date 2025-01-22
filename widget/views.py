@@ -14,6 +14,7 @@ from .serializers import (
     AppointmentDataSerializer,
     AppointmentWidgetSerializer,
     FormTemplateSerializer,
+    ImageUploadSerializer,
     SubmittedDataSerializer,
     WidgetSerializer,
     # Pricing widget serializers
@@ -23,6 +24,7 @@ from .serializers import (
 from .models import (
     AppointmentWidget,
     FormTemplate,
+    ImageUpload,
     SubmittedData,
     WidgetData,
     WidgetFile,
@@ -182,6 +184,12 @@ class WidgetCodeView(APIView):
             )
         elif widget.post_submit_action == WidgetData.HIDE_FORM:
             return Response({"action": "hide_form"}, status=status.HTTP_200_OK)
+
+
+class ImageUploadViewSet(ModelViewSet):
+    http_method_names = ["post"]
+    serializer_class = ImageUploadSerializer
+    queryset = ImageUpload.objects.all()
 
 
 class WidgetViewSet(ModelViewSet):

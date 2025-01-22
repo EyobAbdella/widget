@@ -175,6 +175,10 @@ class SubmitButton(models.Model):
     size = models.CharField(max_length=10)
 
 
+class ImageUpload(models.Model):
+    image = models.ImageField(upload_to="images")
+
+
 class WidgetData(models.Model):
     WIDGET_CONTACT_FORM = "CONTACT_US"
     WIDGET_FORM_BUILDER = "FORM"

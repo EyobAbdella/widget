@@ -15,6 +15,7 @@ from widget.models import (
     EmailNotification,
     Footer,
     FormTemplate,
+    ImageUpload,
     LabelStyle,
     Link,
     PreFill,
@@ -151,6 +152,12 @@ class ThemeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Theme
         fields = ["primary_color", "background_color", "text_color"]
+
+
+class ImageUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImageUpload
+        fields = ["image"]
 
 
 class WidgetSerializer(serializers.ModelSerializer):

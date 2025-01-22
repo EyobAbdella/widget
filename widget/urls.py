@@ -9,6 +9,7 @@ router.register("template", views.FormTemplateViewSet)
 router.register(
     "appointment", views.AppointmentWidgetViewSet, basename="AppointmentWidget"
 )
+router.register("image", views.ImageUploadViewSet)
 widget_data = NestedDefaultRouter(router, "form", lookup="widget")
 widget_data.register("data", views.SubmittedDataView, basename="Submitted Data")
 
