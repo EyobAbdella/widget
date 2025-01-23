@@ -9,7 +9,6 @@
   link.href = `${staticFileEndpoint}/static/style.css`;
   document.head.appendChild(link);
 
-  // Google Font
   const googleFontLink = document.createElement("link");
   googleFontLink.rel = "stylesheet";
   googleFontLink.href =
@@ -40,45 +39,36 @@
       let lastX = 0;
       let lastY = 0;
 
-      // Set canvas size with proper scaling
       function resizeCanvas() {
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
 
-        // Set canvas display size (CSS pixels)
         canvas.style.width = "100%";
         canvas.style.height = "200px";
 
-        // Set canvas buffer size (actual pixels)
         canvas.width = rect.width * dpr;
         canvas.height = 200 * dpr;
 
-        // Scale the context to handle device pixel ratio
         ctx.scale(dpr, dpr);
 
-        // Set drawing styles
         ctx.strokeStyle = "#000";
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
       }
 
-      // Initialize canvas
       resizeCanvas();
       window.addEventListener("resize", resizeCanvas);
 
-      // Convert page coordinates to canvas coordinates
       function getCanvasCoordinates(e) {
         const rect = canvas.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
 
-        // Get the touch/mouse position
         const clientX =
           e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
         const clientY =
           e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
 
-        // Calculate the position relative to the canvas
         return {
           x: (((clientX - rect.left) / rect.width) * canvas.width) / dpr,
           y: (((clientY - rect.top) / rect.height) * canvas.height) / dpr,
@@ -116,19 +106,16 @@
         const input = container.querySelector('input[type="hidden"]');
         if (input) {
           input.value = canvas.toDataURL();
-          // Trigger change event
           const event = new Event("change", { bubbles: true });
           input.dispatchEvent(event);
         }
       }
 
-      // Mouse event listeners
       canvas.addEventListener("mousedown", startDrawing);
       canvas.addEventListener("mousemove", draw);
       canvas.addEventListener("mouseup", stopDrawing);
       canvas.addEventListener("mouseout", stopDrawing);
 
-      // Touch event listeners with passive: false to prevent scrolling
       canvas.addEventListener(
         "touchstart",
         (e) => {
@@ -156,7 +143,6 @@
         { passive: false }
       );
 
-      // Clear button functionality
       const clearButton = container.nextElementSibling?.querySelector(
         ".signature-clear-button"
       );
