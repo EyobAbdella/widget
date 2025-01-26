@@ -4,10 +4,11 @@
   const RECAPTCHA_SITE_KEY = "6LdL15YqAAAAAJADkgf9Nq9NGS88QA2WFcRtzWmu";
   const endpointUrl = "https://widgetcontact.myfindata.com/widgets";
   // const endpointUrl = "http://127.0.0.1:8000/widgets";
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = `${staticFileEndpoint}/static/style.css`;
-  document.head.appendChild(link);
+
+  // Add Tailwind CSS CDN
+  const tailwindLink = document.createElement("script");
+  tailwindLink.src = "https://cdn.tailwindcss.com";
+  document.head.appendChild(tailwindLink);
 
   // Google Font
   const googleFontLink = document.createElement("link");
@@ -29,9 +30,7 @@
   }
 
   function initializeSignaturePad(container) {
-    const signaturePads = container.querySelectorAll(
-      ".signature-pad-container"
-    );
+    const signaturePads = container.querySelectorAll(".signature-pad-container");
 
     signaturePads.forEach((container) => {
       const canvas = container.querySelector("canvas");
@@ -73,10 +72,8 @@
         const dpr = window.devicePixelRatio || 1;
 
         // Get the touch/mouse position
-        const clientX =
-          e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-        const clientY =
-          e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+        const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
 
         // Calculate the position relative to the canvas
         return {
@@ -157,9 +154,7 @@
       );
 
       // Clear button functionality
-      const clearButton = container.nextElementSibling?.querySelector(
-        ".signature-clear-button"
-      );
+      const clearButton = container.nextElementSibling?.querySelector(".signature-clear-button");
       if (clearButton) {
         clearButton.addEventListener("click", () => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -176,18 +171,36 @@
 
   function initializeRatingFields(container) {
     // Handle star-scale fields
-    container
-      .querySelectorAll('[data-field-type="star-scale"]')
-      .forEach((field) => {
-        const stars = field.querySelectorAll("button");
-        const input = field.querySelector('input[type="hidden"]');
+    container.querySelectorAll('[data-field-type="star-scale"]').forEach((field) => {
+      const stars = field.querySelectorAll("button");
+      const input = field.querySelector('input[type="hidden"]');
 
-        // Initial state setup
-        if (input.value) {
-          const currentValue = parseInt(input.value);
+      // Initial state setup
+      if (input.value) {
+        const currentValue = parseInt(input.value);
+        stars.forEach((s, i) => {
+          const starIcon = s.querySelector("svg");
+          if (i < currentValue) {
+            starIcon.setAttribute("fill", "currentColor");
+            starIcon.classList.add("text-primary");
+            starIcon.classList.remove("text-muted-foreground");
+          } else {
+            starIcon.setAttribute("fill", "none");
+            starIcon.classList.remove("text-primary");
+            starIcon.classList.add("text-muted-foreground");
+          }
+        });
+      }
+
+      stars.forEach((star, index) => {
+        star.addEventListener("click", () => {
+          const value = index + 1;
+          input.value = value;
+
+          // Update visual state
           stars.forEach((s, i) => {
             const starIcon = s.querySelector("svg");
-            if (i < currentValue) {
+            if (i < value) {
               starIcon.setAttribute("fill", "currentColor");
               starIcon.classList.add("text-primary");
               starIcon.classList.remove("text-muted-foreground");
@@ -197,61 +210,56 @@
               starIcon.classList.add("text-muted-foreground");
             }
           });
-        }
 
-        stars.forEach((star, index) => {
-          star.addEventListener("click", () => {
-            const value = index + 1;
-            input.value = value;
+          // Trigger change event
+          const event = new Event("change", { bubbles: true });
+          input.dispatchEvent(event);
+        });
 
-            // Update visual state
-            stars.forEach((s, i) => {
-              const starIcon = s.querySelector("svg");
-              if (i < value) {
-                starIcon.setAttribute("fill", "currentColor");
-                starIcon.classList.add("text-primary");
-                starIcon.classList.remove("text-muted-foreground");
-              } else {
-                starIcon.setAttribute("fill", "none");
-                starIcon.classList.remove("text-primary");
-                starIcon.classList.add("text-muted-foreground");
-              }
-            });
+        // Add hover effect
+        star.addEventListener("mouseenter", () => {
+          const starIcon = star.querySelector("svg");
+          starIcon.classList.add("text-primary");
+        });
 
-            // Trigger change event
-            const event = new Event("change", { bubbles: true });
-            input.dispatchEvent(event);
-          });
-
-          // Add hover effect
-          star.addEventListener("mouseenter", () => {
-            const starIcon = star.querySelector("svg");
-            starIcon.classList.add("text-primary");
-          });
-
-          star.addEventListener("mouseleave", () => {
-            const starIcon = star.querySelector("svg");
-            const currentValue = parseInt(input.value) || 0;
-            if (index >= currentValue) {
-              starIcon.classList.remove("text-primary");
-              starIcon.classList.add("text-muted-foreground");
-            }
-          });
+        star.addEventListener("mouseleave", () => {
+          const starIcon = star.querySelector("svg");
+          const currentValue = parseInt(input.value) || 0;
+          if (index >= currentValue) {
+            starIcon.classList.remove("text-primary");
+            starIcon.classList.add("text-muted-foreground");
+          }
         });
       });
+    });
 
     // Handle smiley-scale fields
-    container
-      .querySelectorAll('[data-field-type="smiley-scale"]')
-      .forEach((field) => {
-        const smileys = field.querySelectorAll("button");
-        const input = field.querySelector('input[type="hidden"]');
+    container.querySelectorAll('[data-field-type="smiley-scale"]').forEach((field) => {
+      const smileys = field.querySelectorAll("button");
+      const input = field.querySelector('input[type="hidden"]');
 
-        // Initial state setup
-        if (input.value) {
-          const currentValue = parseInt(input.value);
+      // Initial state setup
+      if (input.value) {
+        const currentValue = parseInt(input.value);
+        smileys.forEach((s, i) => {
+          if (i === currentValue - 1) {
+            s.classList.add("bg-primary", "text-primary-foreground");
+            s.classList.remove("text-muted-foreground");
+          } else {
+            s.classList.remove("bg-primary", "text-primary-foreground");
+            s.classList.add("text-muted-foreground");
+          }
+        });
+      }
+
+      smileys.forEach((smiley, index) => {
+        smiley.addEventListener("click", () => {
+          const value = index + 1;
+          input.value = value;
+
+          // Update visual state
           smileys.forEach((s, i) => {
-            if (i === currentValue - 1) {
+            if (i === index) {
               s.classList.add("bg-primary", "text-primary-foreground");
               s.classList.remove("text-muted-foreground");
             } else {
@@ -259,30 +267,13 @@
               s.classList.add("text-muted-foreground");
             }
           });
-        }
 
-        smileys.forEach((smiley, index) => {
-          smiley.addEventListener("click", () => {
-            const value = index + 1;
-            input.value = value;
-
-            // Update visual state
-            smileys.forEach((s, i) => {
-              if (i === index) {
-                s.classList.add("bg-primary", "text-primary-foreground");
-                s.classList.remove("text-muted-foreground");
-              } else {
-                s.classList.remove("bg-primary", "text-primary-foreground");
-                s.classList.add("text-muted-foreground");
-              }
-            });
-
-            // Trigger change event
-            const event = new Event("change", { bubbles: true });
-            input.dispatchEvent(event);
-          });
+          // Trigger change event
+          const event = new Event("change", { bubbles: true });
+          input.dispatchEvent(event);
         });
       });
+    });
   }
 
   function submitFormDataWithFiles(url, formData) {
@@ -300,9 +291,7 @@
     form.addEventListener("submit", function (event) {
       event.preventDefault();
 
-      form
-        .querySelectorAll(".error")
-        .forEach((errorDiv) => (errorDiv.textContent = ""));
+      form.querySelectorAll(".error").forEach((errorDiv) => (errorDiv.textContent = ""));
 
       let validationFailed = false;
 
@@ -317,15 +306,8 @@
               errorDiv.textContent = "";
             }
           } else {
-            if (
-              type === "scale" ||
-              type === "consent" ||
-              type === "choice" ||
-              type === "multiple_choice"
-            ) {
-              const choice = element.querySelectorAll(
-                'input[type="radio"], input[type="checkbox"]'
-              );
+            if (type === "scale" || type === "consent" || type === "choice" || type === "multiple_choice") {
+              const choice = element.querySelectorAll('input[type="radio"], input[type="checkbox"]');
               let isChecked = false;
               for (const selectedChoice of choice) {
                 if (selectedChoice.checked) {
@@ -364,27 +346,16 @@
             });
           }
         } else if (type === "consent") {
-          const InputValue = element.querySelector(
-            'input[type="checkbox"]:checked'
-          );
+          const InputValue = element.querySelector('input[type="checkbox"]:checked');
           formData.append(originalId, InputValue ? InputValue.checked : false);
         } else if (type === "scale") {
-          const scaleInput = element.querySelector(
-            'input[type="radio"]:checked'
-          );
+          const scaleInput = element.querySelector('input[type="radio"]:checked');
           formData.append(originalId, scaleInput.value);
         } else if (type === "choice") {
-          const selectedChoice = element.querySelector(
-            'input[name="choice"]:checked'
-          );
-          formData.append(
-            originalId,
-            selectedChoice ? selectedChoice.value : null
-          );
+          const selectedChoice = element.querySelector('input[name="choice"]:checked');
+          formData.append(originalId, selectedChoice ? selectedChoice.value : null);
         } else if (type === "multiple_choice") {
-          const choices = element.querySelectorAll(
-            'input[name="multiple-choice"]:checked'
-          );
+          const choices = element.querySelectorAll('input[name="multiple-choice"]:checked');
           formData.append(
             originalId,
             Array.from(choices).map((checkbox) => checkbox.value)
@@ -434,13 +405,11 @@
       widgetDiv.innerHTML = "";
       const messageParagraph = document.createElement("p");
       messageParagraph.textContent = res.value;
-      messageParagraph.className =
-        "text-xl font-semibold text-black py-6 text-center mt-10";
+      messageParagraph.className = "text-xl font-semibold text-black py-6 text-center mt-10";
       widgetDiv.appendChild(messageParagraph);
       const closeButton = document.createElement("button");
       closeButton.textContent = "Close";
-      closeButton.className =
-        "block mx-auto mt-4 px-4 py-2 bg-red-500 text-white rounded";
+      closeButton.className = "block mx-auto mt-4 px-4 py-2 bg-red-500 text-white rounded";
       widgetDiv.appendChild(closeButton);
 
       closeButton.addEventListener("click", () => {
@@ -486,8 +455,7 @@
 
         if (adminData) {
           const adminLink = document.querySelector("#admin_branding a");
-          if (adminLink)
-            adminLink.setAttribute("href", adminData.redirect_url || "#");
+          if (adminLink) adminLink.setAttribute("href", adminData.redirect_url || "#");
 
           const adminImg = document.querySelector("#admin_branding img");
           if (adminImg) {
@@ -501,8 +469,7 @@
 
         if (userData) {
           const userLink = document.querySelector("#user_branding a");
-          if (userLink)
-            userLink.setAttribute("href", userData.redirect_url || "#");
+          if (userLink) userLink.setAttribute("href", userData.redirect_url || "#");
 
           const userImg = document.querySelector("#user_branding img");
           if (userImg) {
@@ -526,9 +493,7 @@
             isRequired: element.getAttribute("aria-required") === "true",
             type:
               element.getAttribute("data-type") ||
-              (element.tagName.toLowerCase() === "textarea"
-                ? "textarea"
-                : element.getAttribute("type") || "signature"),
+              (element.tagName.toLowerCase() === "textarea" ? "textarea" : element.getAttribute("type") || "signature"),
           };
         });
 
@@ -547,9 +512,7 @@
             if (["textarea", "text", "email"].includes(field.type)) {
               element.value = value;
             } else if (field.type === "radio" || field.type === "checkbox") {
-              const matchingInput = element.querySelector(
-                `input[value="${value}"]`
-              );
+              const matchingInput = element.querySelector(`input[value="${value}"]`);
               if (matchingInput) matchingInput.checked = true;
             }
           }
