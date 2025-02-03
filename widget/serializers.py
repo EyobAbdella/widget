@@ -9,12 +9,21 @@ from widget.models import (
     AppointmentWidget,
     AppointmentWidth,
     Background,
+    ButtonColors,
+    ButtonSpacing,
     ButtonStyle,
+    CornerRadius,
+    CoverImage,
+    DarkMode,
     DaySchedule,
     DisplaySettings,
     EmailNotification,
     Footer,
     FormTemplate,
+    Gradient,
+    Header,
+    HoverColors,
+    ImageSettings,
     ImageUpload,
     LabelStyle,
     Link,
@@ -25,6 +34,7 @@ from widget.models import (
     SubmitButton,
     SubmittedData,
     Theme,
+    TitleStyle,
     WidgetData,
     UserBrandInfo,
     # Pricing widget models
@@ -41,6 +51,26 @@ from widget.models import (
     PriceAppearance,
     TitleAppearance,
 )
+
+
+class GradientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Gradient
+        fields = ["enabled", "start_color", "end_color", "angle"]
+
+
+class CornerRadiusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CornerRadius
+        fields = ["enabled", "value", "unit"]
+
+
+class DarkModeSerializer(serializers.ModelSerializer):
+    gradient = GradientSerializer()
+
+    class Meta:
+        model = DarkMode
+        fields = ["primary_color", "background_color", "text_color", "gradient"]
 
 
 class EmailNotificationSerializer(serializers.ModelSerializer):
@@ -93,10 +123,27 @@ class ButtonStyleSerializers(serializers.ModelSerializer):
         ]
 
 
+class ImageSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImageSettings
+        fields = ["position", "size", "repeat"]
+
+
 class BackgroundSerializers(serializers.ModelSerializer):
+    image_settings = ImageSettingsSerializer()
+
     class Meta:
         model = Background
-        fields = ["type", "value", "opacity", "file", "auto_play", "muted", "loop"]
+        fields = [
+            "type",
+            "value",
+            "opacity",
+            "file",
+            "auto_play",
+            "muted",
+            "loop",
+            "image_settings",
+        ]
 
 
 class DisplaySettingsSerializer(serializers.ModelSerializer):
@@ -142,16 +189,79 @@ class FooterSerializer(serializers.ModelSerializer):
         fields = ["enabled", "text", "alignment", "font_size", "text_color"]
 
 
-class SubmitButtonSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SubmitButton
-        fields = ["text", "variant", "alignment", "size"]
-
-
 class ThemeSerializer(serializers.ModelSerializer):
+    gradient = GradientSerializer()
+    corner_radius = CornerRadiusSerializer()
+    dark_mode = DarkModeSerializer()
+
     class Meta:
         model = Theme
-        fields = ["primary_color", "background_color", "text_color"]
+        fields = [
+            "mode",
+            "primary_color",
+            "background_color",
+            "text_color",
+            "gradient",
+            "corner_radius",
+            "dark_mode",
+        ]
+
+
+class ButtonSpacingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ButtonSpacing
+        fields = ["horizontal", "vertical", "unit"]
+
+
+class HoverColorsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HoverColors
+        fields = ["background", "text", "border"]
+
+
+class ButtonColorsSerializer(serializers.ModelSerializer):
+    hover = HoverColorsSerializer()
+
+    class Meta:
+        model = ButtonColors
+        fields = ["background", "text", "border", "hover"]
+
+
+class SubmitButtonSerializer(serializers.ModelSerializer):
+    spacing = ButtonSpacingSerializer()
+    colors = ButtonColorsSerializer()
+
+    class Meta:
+        model = SubmitButton
+        fields = [
+            "text",
+            "variant",
+            "alignment",
+            "size",
+            "full_width",
+            "spacing",
+            "colors",
+        ]
+
+
+class TitleStyleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TitleStyle
+        fields = ["bold", "italic", "underline"]
+
+
+class CoverImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoverImage
+        fields = ["enabled", "image", "aspect_ratio", "corner_radius"]
+
+
+class HeaderSerializer(serializers.ModelSerializer):
+    cover_image = CoverImageSerializer()
+
+    class Meta:
+        model = Header
+        fields = ["visible", "alignment", "cover_image"]
 
 
 class ImageUploadSerializer(serializers.ModelSerializer):
@@ -176,6 +286,8 @@ class WidgetSerializer(serializers.ModelSerializer):
     submit_button = SubmitButtonSerializer()
     theme = ThemeSerializer()
     footer = FooterSerializer()
+    title_style = TitleStyleSerializer(required=False)
+    header = HeaderSerializer()
 
     class Meta:
         model = WidgetData
@@ -186,6 +298,8 @@ class WidgetSerializer(serializers.ModelSerializer):
             "name",
             "title",
             "description",
+            "title_style",
+            "header",
             "html",
             "script",
             "script_url",
@@ -255,27 +369,101 @@ class WidgetSerializer(serializers.ModelSerializer):
         footer_data = validated_data.pop("footer", None)
         theme_data = validated_data.pop("theme", None)
         submit_button_data = validated_data.pop("submit_button", None)
+        title_style_data = validated_data.pop("title_style", None)
+        header_data = validated_data.pop("header", None)
 
         if theme_data:
-            theme = Theme.objects.create(**theme_data)
+            gradient_data = theme_data.pop("gradient", None)
+            corner_radius_data = theme_data.pop("corner_radius", None)
+            dark_mode_data = theme_data.pop("dark_mode", None)
+
+            gradient = (
+                Gradient.objects.create(**gradient_data) if gradient_data else None
+            )
+            corner_radius = (
+                CornerRadius.objects.create(**corner_radius_data)
+                if corner_radius_data
+                else None
+            )
+
+            if dark_mode_data:
+                dark_mode_gradient_data = dark_mode_data.pop("gradient", None)
+                dark_mode_gradient = (
+                    Gradient.objects.create(**dark_mode_gradient_data)
+                    if dark_mode_gradient_data
+                    else None
+                )
+                dark_mode = DarkMode.objects.create(
+                    gradient=dark_mode_gradient, **dark_mode_data
+                )
+            else:
+                dark_mode = None
+
+            theme = Theme.objects.create(
+                gradient=gradient,
+                corner_radius=corner_radius,
+                dark_mode=dark_mode,
+                **theme_data,
+            )
             validated_data["theme"] = theme
 
         if submit_button_data:
-            submit_button = SubmitButton.objects.create(**submit_button_data)
+            colors_data = submit_button_data.pop("colors", None)
+            spacing_data = submit_button_data.pop("spacing", None)
+
+            if colors_data:
+                hover_data = colors_data.pop("hover", None)
+                hover = HoverColors.objects.create(**hover_data) if hover_data else None
+                colors = ButtonColors.objects.create(hover=hover, **colors_data)
+            else:
+                colors = None
+
+            if spacing_data:
+                spacing = ButtonSpacing.objects.create(**spacing_data)
+            else:
+                spacing = None
+
+            submit_button = SubmitButton.objects.create(
+                colors=colors, spacing=spacing, **submit_button_data
+            )
             validated_data["submit_button"] = submit_button
 
         if footer_data:
             footer = Footer.objects.create(**footer_data)
             validated_data["footer"] = footer
 
+        if title_style_data:
+            title_style = TitleStyle.objects.create(**title_style_data)
+            validated_data["title_style"] = title_style
+
+        if header_data:
+            cover_image_data = header_data.pop("cover_image", None)
+            if cover_image_data:
+                cover_image = CoverImage.objects.create(**cover_image_data)
+            else:
+                cover_image = None
+            header = Header.objects.create(cover_image=cover_image, **header_data)
+            validated_data["header"] = header
+
         if display_settings_data:
             background_data = display_settings_data.pop("background", None)
+
             if background_data:
-                background = Background.objects.create(**background_data)
+                image_settings_data = background_data.pop("image_settings", None)
+
+                if image_settings_data:
+                    image_settings = ImageSettings.objects.create(**image_settings_data)
+                else:
+                    image_settings = None
+
+                background = Background.objects.create(
+                    image_settings=image_settings, **background_data
+                )
             else:
                 background = None
 
             button_style_data = display_settings_data.pop("button_style", None)
+
             if button_style_data:
                 button_style = ButtonStyle.objects.create(**button_style_data)
             else:
@@ -314,27 +502,137 @@ class WidgetSerializer(serializers.ModelSerializer):
         footer_data = validated_data.pop("footer", None)
         theme_data = validated_data.pop("theme", None)
         submit_button_data = validated_data.pop("submit_button", None)
+        title_style_data = validated_data.pop("title_style", None)
+        header_data = validated_data.pop("header", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         if theme_data:
-            if instance.theme:
-                for attr, value in theme_data.items():
-                    setattr(instance.theme, attr, value)
-                instance.theme.save()
+            gradient_data = theme_data.pop("gradient", None)
+            corner_radius_data = theme_data.pop("corner_radius", None)
+            dark_mode_data = theme_data.pop("dark_mode", None)
+
+            if gradient_data:
+                if instance.theme and instance.theme.gradient:
+                    gradient = instance.theme.gradient
+                    for attr, value in gradient_data.items():
+                        setattr(gradient, attr, value)
+                    gradient.save()
+                else:
+                    gradient = Gradient.objects.create(**gradient_data)
             else:
-                theme = Theme.objects.create(**theme_data)
-                instance.theme = theme
+                gradient = None
+
+            if corner_radius_data:
+                if instance.theme and instance.theme.corner_radius:
+                    corner_radius = instance.theme.corner_radius
+                    for attr, value in corner_radius_data.items():
+                        setattr(corner_radius, attr, value)
+                    corner_radius.save()
+                else:
+                    corner_radius = CornerRadius.objects.create(**corner_radius_data)
+            else:
+                corner_radius = None
+
+            if dark_mode_data:
+                dark_mode_gradient_data = dark_mode_data.pop("gradient", None)
+                if dark_mode_gradient_data:
+                    if (
+                        instance.theme
+                        and instance.theme.dark_mode
+                        and instance.theme.dark_mode.gradient
+                    ):
+                        dark_mode_gradient = instance.theme.dark_mode.gradient
+                        for attr, value in dark_mode_gradient_data.items():
+                            setattr(dark_mode_gradient, attr, value)
+                        dark_mode_gradient.save()
+                    else:
+                        dark_mode_gradient = Gradient.objects.create(
+                            **dark_mode_gradient_data
+                        )
+                else:
+                    dark_mode_gradient = None
+
+                if instance.theme and instance.theme.dark_mode:
+                    dark_mode = instance.theme.dark_mode
+                    for attr, value in dark_mode_data.items():
+                        setattr(dark_mode, attr, value)
+                    dark_mode.gradient = dark_mode_gradient
+                    dark_mode.save()
+                else:
+                    dark_mode = DarkMode.objects.create(
+                        gradient=dark_mode_gradient, **dark_mode_data
+                    )
+            else:
+                dark_mode = None
+
+            if instance.theme:
+                theme = instance.theme
+                for attr, value in theme_data.items():
+                    setattr(theme, attr, value)
+                theme.gradient = gradient
+                theme.corner_radius = corner_radius
+                theme.dark_mode = dark_mode
+                theme.save()
+            else:
+                theme = Theme.objects.create(
+                    gradient=gradient,
+                    corner_radius=corner_radius,
+                    dark_mode=dark_mode,
+                    **theme_data,
+                )
+            instance.theme = theme
 
         if submit_button_data:
-            if instance.submit_button:
-                for attr, value in submit_button_data.items():
-                    setattr(instance.submit_button, attr, value)
-                instance.submit_button.save()
+            colors_data = submit_button_data.pop("colors", None)
+            spacing_data = submit_button_data.pop("spacing", None)
+
+            if colors_data:
+                hover_data = colors_data.pop("hover", None)
+                if instance.submit_button and instance.submit_button.colors:
+                    colors = instance.submit_button.colors
+                    if hover_data:
+                        if colors.hover:
+                            for attr, value in hover_data.items():
+                                setattr(colors.hover, attr, value)
+                            colors.hover.save()
+                        else:
+                            colors.hover = HoverColors.objects.create(**hover_data)
+                    for attr, value in colors_data.items():
+                        setattr(colors, attr, value)
+                    colors.save()
+                else:
+                    hover = (
+                        HoverColors.objects.create(**hover_data) if hover_data else None
+                    )
+                    colors = ButtonColors.objects.create(hover=hover, **colors_data)
             else:
-                submit_button = SubmitButton.objects.create(**submit_button_data)
-                instance.submit_button = submit_button
+                colors = None
+
+            if spacing_data:
+                if instance.submit_button and instance.submit_button.spacing:
+                    spacing = instance.submit_button.spacing
+                    for attr, value in spacing_data.items():
+                        setattr(spacing, attr, value)
+                    spacing.save()
+                else:
+                    spacing = ButtonSpacing.objects.create(**spacing_data)
+            else:
+                spacing = None
+
+            if instance.submit_button:
+                submit_button = instance.submit_button
+                for attr, value in submit_button_data.items():
+                    setattr(submit_button, attr, value)
+                submit_button.colors = colors
+                submit_button.spacing = spacing
+                submit_button.save()
+            else:
+                submit_button = SubmitButton.objects.create(
+                    colors=colors, spacing=spacing, **submit_button_data
+                )
+            instance.submit_button = submit_button
 
         if footer_data:
             if instance.footer:
@@ -344,6 +642,38 @@ class WidgetSerializer(serializers.ModelSerializer):
             else:
                 footer = Footer.objects.create(**footer_data)
                 instance.footer = footer
+
+        if title_style_data:
+            if instance.title_style:
+                for attr, value in title_style_data.items():
+                    setattr(instance.title_style, attr, value)
+                instance.title_style.save()
+            else:
+                title_style = TitleStyle.objects.create(**title_style_data)
+                instance.title_style = title_style
+
+        if header_data:
+            if instance.header:
+                cover_image_data = header_data.pop("cover_image", None)
+                if cover_image_data:
+                    if instance.header.cover_image:
+                        for attr, value in cover_image_data.items():
+                            setattr(instance.header.cover_image, attr, value)
+                        instance.header.cover_image.save()
+                    else:
+                        cover_image = CoverImage.objects.create(**cover_image_data)
+                        instance.header.cover_image = cover_image
+                for attr, value in header_data.items():
+                    setattr(instance.header, attr, value)
+                instance.header.save()
+            else:
+                cover_image_data = header_data.pop("cover_image", None)
+                if cover_image_data:
+                    cover_image = CoverImage.objects.create(**cover_image_data)
+                else:
+                    cover_image = None
+                header = Header.objects.create(cover_image=cover_image, **header_data)
+                instance.header = header
 
         if email_notification_data:
             if instance.email_notification:
@@ -382,13 +712,37 @@ class WidgetSerializer(serializers.ModelSerializer):
 
             background_data = display_settings_data.pop("background", None)
             if background_data:
+                image_settings_data = background_data.pop("image_settings", None)
+
+                if image_settings_data:
+                    if (
+                        instance.display_settings
+                        and instance.display_settings.background
+                        and instance.display_settings.background.image_settings
+                    ):
+                        image_settings = (
+                            instance.display_settings.background.image_settings
+                        )
+                        for attr, value in image_settings_data.items():
+                            setattr(image_settings, attr, value)
+                        image_settings.save()
+                    else:
+                        image_settings = ImageSettings.objects.create(
+                            **image_settings_data
+                        )
+                else:
+                    image_settings = None
+
                 if instance.display_settings and instance.display_settings.background:
                     background = instance.display_settings.background
                     for attr, value in background_data.items():
                         setattr(background, attr, value)
+                    background.image_settings = image_settings
                     background.save()
                 else:
-                    background = Background.objects.create(**background_data)
+                    background = Background.objects.create(
+                        image_settings=image_settings, **background_data
+                    )
             else:
                 background = None
 

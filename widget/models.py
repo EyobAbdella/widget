@@ -67,6 +67,12 @@ class ButtonStyle(models.Model):
     hover_background_color = models.CharField(max_length=10, blank=True, null=True)
 
 
+class ImageSettings(models.Model):
+    position = models.CharField(max_length=50, default="center")
+    size = models.CharField(max_length=50, default="cover")
+    repeat = models.CharField(max_length=50, default="no-repeat")
+
+
 class Background(models.Model):
     BACKGROUND_TYPE_CHOICES = [
         ("Image", "Image"),
@@ -81,6 +87,9 @@ class Background(models.Model):
     auto_play = models.BooleanField(default=False)
     muted = models.BooleanField(default=False)
     loop = models.BooleanField(default=False)
+    image_settings = models.OneToOneField(
+        ImageSettings, on_delete=models.SET_NULL, null=True
+    )
 
 
 class LabelStyle(models.Model):
@@ -158,10 +167,67 @@ class Footer(models.Model):
     text_color = models.CharField(max_length=50, null=True, blank=True)
 
 
+class Gradient(models.Model):
+    enabled = models.BooleanField(default=False)
+    start_color = models.CharField(max_length=7, default="#ffffff")
+    end_color = models.CharField(max_length=7, default="#000000")
+    angle = models.IntegerField(default=45)
+
+
+class CornerRadius(models.Model):
+    enabled = models.BooleanField(default=False)
+    value = models.IntegerField(default=8)
+    unit = models.CharField(max_length=10, default="px")
+
+
+class DarkMode(models.Model):
+    primary_color = models.CharField(max_length=7, default="#ffffff")
+    background_color = models.CharField(max_length=7, default="#000000")
+    text_color = models.CharField(max_length=7, default="#ffffff")
+    gradient = models.OneToOneField(
+        Gradient, on_delete=models.CASCADE, related_name="dark_mode_gradient"
+    )
+
+
 class Theme(models.Model):
+    mode = models.CharField(max_length=50, default="light")
     primary_color = models.CharField(max_length=10)
     background_color = models.CharField(max_length=10)
     text_color = models.CharField(max_length=10)
+    gradient = models.OneToOneField(
+        Gradient, on_delete=models.CASCADE, related_name="theme_gradient"
+    )
+    corner_radius = models.OneToOneField(
+        CornerRadius, on_delete=models.CASCADE, related_name="theme_corner_radius"
+    )
+    dark_mode = models.OneToOneField(
+        DarkMode, on_delete=models.CASCADE, related_name="theme_dark_mode"
+    )
+
+
+class ButtonSpacing(models.Model):
+    horizontal = models.IntegerField(default=16)
+    vertical = models.IntegerField(default=8)
+    unit = models.CharField(max_length=10, default="px")
+
+
+class HoverColors(models.Model):
+    background = models.CharField(max_length=7, default="#333333")
+    text = models.CharField(max_length=7, default="#ffffff")
+    border = models.CharField(max_length=7, default="#333333")
+
+
+class ButtonColors(models.Model):
+    background = models.CharField(max_length=7, default="#000000")
+    text = models.CharField(max_length=7, default="#ffffff")
+    border = models.CharField(max_length=7, default="#000000")
+    hover = models.OneToOneField(
+        HoverColors,
+        on_delete=models.CASCADE,
+        related_name="hover_colors",
+        null=True,
+        blank=True,
+    )
 
 
 class SubmitButton(models.Model):
@@ -173,10 +239,34 @@ class SubmitButton(models.Model):
     variant = models.CharField(max_length=100)
     alignment = models.CharField(default=LEFT, max_length=6, choices=ALIGNMENT_CHOICES)
     size = models.CharField(max_length=10)
+    full_width = models.BooleanField(default=False)
+    spacing = models.OneToOneField(ButtonSpacing, on_delete=models.SET_NULL, null=True)
+    colors = models.OneToOneField(ButtonColors, on_delete=models.SET_NULL, null=True)
 
 
 class ImageUpload(models.Model):
     image = models.ImageField(upload_to="images")
+
+
+class TitleStyle(models.Model):
+    bold = models.BooleanField(default=False)
+    italic = models.BooleanField(default=False)
+    underline = models.BooleanField(default=False)
+
+
+class CoverImage(models.Model):
+    enabled = models.BooleanField(default=False)
+    image = models.ImageField(upload_to="covers/", null=True, blank=True)
+    aspect_ratio = models.CharField(max_length=50, default="original")
+    corner_radius = models.CharField(max_length=50, default="square")
+
+
+class Header(models.Model):
+    visible = models.BooleanField(default=True)
+    alignment = models.CharField(max_length=50, default="center")
+    cover_image = models.OneToOneField(
+        CoverImage, on_delete=models.CASCADE, related_name="header_cover_image"
+    )
 
 
 class WidgetData(models.Model):
@@ -202,6 +292,8 @@ class WidgetData(models.Model):
     name = models.CharField(max_length=255)
     title = models.CharField(max_length=255)
     description = models.TextField()
+    title_style = models.OneToOneField(TitleStyle, on_delete=models.SET_NULL, null=True)
+    header = models.OneToOneField(Header, on_delete=models.SET_NULL, null=True)
     html = models.TextField()
     script = models.TextField(null=True, blank=True)
     widget_fields = models.JSONField(default=list)
