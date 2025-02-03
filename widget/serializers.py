@@ -799,7 +799,27 @@ class FormTemplateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         submit_button_data = validated_data.pop("submit_button")
-        submit_button = SubmitButton.objects.create(**submit_button_data)
+
+        colors_data = submit_button_data.pop("colors", None)
+        hover_data = colors_data.pop("hover", None) if colors_data else None
+        hover_instance = (
+            HoverColors.objects.create(**hover_data) if hover_data else None
+        )
+        colors_instance = (
+            ButtonColors.objects.create(hover=hover_instance, **colors_data)
+            if colors_data
+            else None
+        )
+
+        spacing_data = submit_button_data.pop("spacing", None)
+        spacing_instance = (
+            ButtonSpacing.objects.create(**spacing_data) if spacing_data else None
+        )
+
+        submit_button = SubmitButton.objects.create(
+            colors=colors_instance, spacing=spacing_instance, **submit_button_data
+        )
+
         return FormTemplate.objects.create(
             submit_button=submit_button, **validated_data
         )
@@ -810,16 +830,48 @@ class FormTemplateSerializer(serializers.ModelSerializer):
         instance = super().update(instance, validated_data)
 
         if submit_button_data:
+            colors_data = submit_button_data.pop("colors", None)
+            if colors_data:
+                hover_data = colors_data.pop("hover", None)
+
+                if instance.submit_button.colors:
+                    if hover_data:
+                        if instance.submit_button.colors.hover:
+                            for key, value in hover_data.items():
+                                setattr(instance.submit_button.colors.hover, key, value)
+                            instance.submit_button.colors.hover.save()
+                        else:
+                            instance.submit_button.colors.hover = (
+                                HoverColors.objects.create(**hover_data)
+                            )
+
+                    for key, value in colors_data.items():
+                        setattr(instance.submit_button.colors, key, value)
+                    instance.submit_button.colors.save()
+                else:
+                    hover_instance = (
+                        HoverColors.objects.create(**hover_data) if hover_data else None
+                    )
+                    instance.submit_button.colors = ButtonColors.objects.create(
+                        hover=hover_instance, **colors_data
+                    )
+
+            spacing_data = submit_button_data.pop("spacing", None)
+            if spacing_data:
+                if instance.submit_button.spacing:
+                    for key, value in spacing_data.items():
+                        setattr(instance.submit_button.spacing, key, value)
+                    instance.submit_button.spacing.save()
+                else:
+                    instance.submit_button.spacing = ButtonSpacing.objects.create(
+                        **spacing_data
+                    )
+
             submit_button_serializer = SubmitButtonSerializer(
-                instance.submit_button, data=submit_button_data
+                instance.submit_button, data=submit_button_data, partial=True
             )
             submit_button_serializer.is_valid(raise_exception=True)
             submit_button_serializer.save()
-
-        header_enabled = validated_data.get("header_enabled", instance.header_enabled)
-        if not header_enabled:
-            instance.header_title = ""
-            instance.header_caption = ""
 
         instance.save()
         return instance
