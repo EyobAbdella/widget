@@ -130,7 +130,7 @@ class ImageSettingsSerializer(serializers.ModelSerializer):
 
 
 class BackgroundSerializers(serializers.ModelSerializer):
-    image_settings = ImageSettingsSerializer()
+    image_settings = ImageSettingsSerializer(required=False)
 
     class Meta:
         model = Background
@@ -228,8 +228,8 @@ class ButtonColorsSerializer(serializers.ModelSerializer):
 
 
 class SubmitButtonSerializer(serializers.ModelSerializer):
-    spacing = ButtonSpacingSerializer()
-    colors = ButtonColorsSerializer()
+    spacing = ButtonSpacingSerializer(required=False)
+    colors = ButtonColorsSerializer(required=False)
 
     class Meta:
         model = SubmitButton
@@ -451,6 +451,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             if background_data:
                 image_settings_data = background_data.pop("image_settings", None)
 
+                print(image_settings_data)
                 if image_settings_data:
                     image_settings = ImageSettings.objects.create(**image_settings_data)
                 else:
@@ -799,9 +800,9 @@ class FormTemplateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         submit_button_data = validated_data.pop("submit_button")
-
         colors_data = submit_button_data.pop("colors", None)
         hover_data = colors_data.pop("hover", None) if colors_data else None
+
         hover_instance = (
             HoverColors.objects.create(**hover_data) if hover_data else None
         )
