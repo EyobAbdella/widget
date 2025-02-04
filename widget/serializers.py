@@ -190,9 +190,9 @@ class FooterSerializer(serializers.ModelSerializer):
 
 
 class ThemeSerializer(serializers.ModelSerializer):
-    gradient = GradientSerializer()
-    corner_radius = CornerRadiusSerializer()
-    dark_mode = DarkModeSerializer()
+    gradient = GradientSerializer(required=False)
+    corner_radius = CornerRadiusSerializer(required=False)
+    dark_mode = DarkModeSerializer(required=False)
 
     class Meta:
         model = Theme
