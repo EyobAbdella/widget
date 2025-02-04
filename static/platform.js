@@ -14,7 +14,7 @@
   const googleFontLink = document.createElement("link");
   googleFontLink.rel = "stylesheet";
   googleFontLink.href =
-    "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lato:wght@400;700&family=Montserrat:wght@400;500;600&family=Open+Sans:wght@400;600&family=Poppins:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap";
+    "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lato:wght@400;700&family=Merriweather:wght@400;500;600&family=Montserrat:wght@400;500;600&family=Nunito:wght@400;500;600&family=Open+Sans:wght@400;600&family=Oswald:wght@400;500;600&family=PT+Sans:wght@400;500;600&family=Playfair+Display:wght@400;500;600&family=Poppins:wght@400;500;600&family=Raleway:wght@400;500;600&family=Roboto+Condensed:wght@400;500;600&family=Roboto:wght@400;500;700&family=Source+Sans+Pro:wght@400;500;600&family=Ubuntu:wght@400;500;600&display=swap";
   document.head.appendChild(googleFontLink);
 
   const widgetDiv = document.querySelector('div[class^="cont-app-"]');
@@ -170,7 +170,7 @@
   }
 
   function initializeRatingFields(container) {
-    // Handle star-scale fields
+    // Handle star-scale fields (keeping original implementation)
     container.querySelectorAll('[data-field-type="star-scale"]').forEach((field) => {
       const stars = field.querySelectorAll("button");
       const input = field.querySelector('input[type="hidden"]');
@@ -193,7 +193,10 @@
       }
 
       stars.forEach((star, index) => {
-        star.addEventListener("click", () => {
+        star.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
           const value = index + 1;
           input.value = value;
 
@@ -233,38 +236,103 @@
       });
     });
 
-    // Handle smiley-scale fields
+    // Handle smiley-scale fields (fixed implementation)
     container.querySelectorAll('[data-field-type="smiley-scale"]').forEach((field) => {
       const smileys = field.querySelectorAll("button");
       const input = field.querySelector('input[type="hidden"]');
 
-      // Initial state setup
-      if (input.value) {
-        const currentValue = parseInt(input.value);
-        smileys.forEach((s, i) => {
-          if (i === currentValue - 1) {
-            s.classList.add("bg-primary", "text-primary-foreground");
-            s.classList.remove("text-muted-foreground");
-          } else {
-            s.classList.remove("bg-primary", "text-primary-foreground");
-            s.classList.add("text-muted-foreground");
-          }
-        });
-      }
-
       smileys.forEach((smiley, index) => {
-        smiley.addEventListener("click", () => {
+        smiley.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
           const value = index + 1;
           input.value = value;
 
           // Update visual state
           smileys.forEach((s, i) => {
             if (i === index) {
-              s.classList.add("bg-primary", "text-primary-foreground");
-              s.classList.remove("text-muted-foreground");
+              s.classList.add("bg-gray-800", "text-white");
+              s.classList.remove("hover:bg-gray-100");
             } else {
-              s.classList.remove("bg-primary", "text-primary-foreground");
-              s.classList.add("text-muted-foreground");
+              s.classList.remove("bg-gray-800", "text-white");
+              s.classList.add("hover:bg-gray-100");
+            }
+          });
+
+          // Trigger change event
+          const event = new Event("change", { bubbles: true });
+          input.dispatchEvent(event);
+        });
+      });
+    });
+
+    // Handle number-scale fields (fixed implementation)
+    container.querySelectorAll('[data-field-type="number-scale"]').forEach((field) => {
+      const buttons = field.querySelectorAll("button");
+      const input = field.querySelector('input[type="hidden"]');
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          try {
+            const value = button.textContent?.trim();
+            if (value) {
+              input.value = value;
+
+              buttons.forEach((b) => {
+                if (b === button) {
+                  b.classList.add("bg-gray-800", "text-white");
+                  b.classList.remove("bg-gray-100", "text-gray-900");
+                } else {
+                  b.classList.remove("bg-gray-800", "text-white");
+                  b.classList.add("bg-gray-100", "text-gray-900");
+                }
+              });
+
+              // Trigger change event
+              const event = new Event("change", { bubbles: true });
+              input.dispatchEvent(event);
+            }
+          } catch (error) {
+            console.error("Error handling number scale click:", error);
+          }
+        });
+      });
+    });
+
+    // Handle thumb-scale fields (fixed implementation)
+    container.querySelectorAll('[data-field-type="thumb-scale"]').forEach((field) => {
+      const thumbs = field.querySelectorAll("button");
+      const input = field.querySelector('input[type="hidden"]');
+
+      thumbs.forEach((thumb, index) => {
+        thumb.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const value = index;
+          input.value = value;
+
+          // Update visual state
+          thumbs.forEach((t, i) => {
+            const icon = t.querySelector("svg");
+            if (i === index) {
+              if (i === 0) {
+                t.classList.add("bg-red-600", "text-white");
+                icon.classList.add("text-white");
+              } else {
+                t.classList.add("bg-green-600", "text-white");
+                icon.classList.add("text-white");
+              }
+              t.classList.remove("bg-gray-100", "text-gray-900");
+              icon.classList.remove("text-gray-400");
+            } else {
+              t.classList.remove("bg-red-600", "bg-green-600", "text-white");
+              t.classList.add("bg-gray-100", "text-gray-900");
+              icon.classList.remove("text-white");
+              icon.classList.add("text-gray-400");
             }
           });
 
