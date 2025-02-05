@@ -65,6 +65,7 @@ class ButtonStyle(models.Model):
     padding = models.CharField(max_length=50, blank=True, null=True)
     font_size = models.CharField(max_length=50, blank=True, null=True)
     hover_background_color = models.CharField(max_length=10, blank=True, null=True)
+    icon = models.ImageField(upload_to="icon", null=True, blank=True)
 
 
 class ImageSettings(models.Model):
@@ -269,6 +270,11 @@ class Header(models.Model):
     )
 
 
+class FormBuilderLayout(models.Model):
+    type = models.CharField(max_length=255, null=True, blank=True)
+    columns = models.CharField(max_length=255, null=True, blank=True)
+
+
 class WidgetData(models.Model):
     WIDGET_CONTACT_FORM = "CONTACT_US"
     WIDGET_FORM_BUILDER = "FORM"
@@ -295,6 +301,9 @@ class WidgetData(models.Model):
     title_style = models.OneToOneField(TitleStyle, on_delete=models.SET_NULL, null=True)
     header = models.OneToOneField(Header, on_delete=models.SET_NULL, null=True)
     html = models.TextField()
+    layout = models.OneToOneField(
+        FormBuilderLayout, on_delete=models.SET_NULL, null=True
+    )
     script = models.TextField(null=True, blank=True)
     widget_fields = models.JSONField(default=list)
     sheet_id = models.CharField(max_length=255, blank=True, null=True)
@@ -323,6 +332,7 @@ class WidgetData(models.Model):
     theme = models.OneToOneField(Theme, on_delete=models.SET_NULL, null=True)
     default_language = models.CharField(max_length=100)
     footer = models.OneToOneField(Footer, on_delete=models.SET_NULL, null=True)
+    custom_js = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -562,6 +572,7 @@ class Layout(models.Model):
     layout_type = models.CharField(
         max_length=1, choices=LAYOUT_CHOICES, default=LAYOUT_GRID
     )
+
     picture = models.BooleanField(default=True)
     title = models.BooleanField(default=True)
     features = models.BooleanField(default=True)

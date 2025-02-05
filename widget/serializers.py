@@ -19,6 +19,7 @@ from widget.models import (
     DisplaySettings,
     EmailNotification,
     Footer,
+    FormBuilderLayout,
     FormTemplate,
     Gradient,
     Header,
@@ -120,6 +121,7 @@ class ButtonStyleSerializers(serializers.ModelSerializer):
             "padding",
             "font_size",
             "hover_background_color",
+            "icon",
         ]
 
 
@@ -270,6 +272,12 @@ class ImageUploadSerializer(serializers.ModelSerializer):
         fields = ["image"]
 
 
+class FormBuilderLayoutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FormBuilderLayout
+        fields = ["type", "columns"]
+
+
 class WidgetSerializer(serializers.ModelSerializer):
     total_submissions = serializers.SerializerMethodField()
     pre_fill_values = PreFillSerializer(source="pre_fill", many=True, required=False)
@@ -288,6 +296,7 @@ class WidgetSerializer(serializers.ModelSerializer):
     footer = FooterSerializer()
     title_style = TitleStyleSerializer(required=False)
     header = HeaderSerializer()
+    layout = FormBuilderLayoutSerializer(required=False)
 
     class Meta:
         model = WidgetData
@@ -299,6 +308,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "title_style",
+            "layout",
             "header",
             "html",
             "script",
@@ -324,6 +334,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "theme",
             "default_language",
             "footer",
+            "custom_js",
             "total_submissions",
         ]
         read_only_fields = ["id", "user", "total_submissions", "sheet_id"]
@@ -371,6 +382,11 @@ class WidgetSerializer(serializers.ModelSerializer):
         submit_button_data = validated_data.pop("submit_button", None)
         title_style_data = validated_data.pop("title_style", None)
         header_data = validated_data.pop("header", None)
+        layout_data = validated_data.pop("layout", None)
+
+        if layout_data:
+            layout = FormBuilderLayout.objects.create(**layout_data)
+            validated_data["layout"] = layout
 
         if theme_data:
             gradient_data = theme_data.pop("gradient", None)
@@ -451,7 +467,6 @@ class WidgetSerializer(serializers.ModelSerializer):
             if background_data:
                 image_settings_data = background_data.pop("image_settings", None)
 
-                print(image_settings_data)
                 if image_settings_data:
                     image_settings = ImageSettings.objects.create(**image_settings_data)
                 else:
@@ -505,9 +520,19 @@ class WidgetSerializer(serializers.ModelSerializer):
         submit_button_data = validated_data.pop("submit_button", None)
         title_style_data = validated_data.pop("title_style", None)
         header_data = validated_data.pop("header", None)
+        layout_data = validated_data.pop("layout", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        if layout_data:
+            if instance.layout:
+                for attr, value in layout_data.items():
+                    setattr(instance.layout, attr, value)
+                instance.layout.save()
+            else:
+                layout = FormBuilderLayout.objects.create(**layout_data)
+                instance.layout = layout
 
         if theme_data:
             gradient_data = theme_data.pop("gradient", None)
@@ -1416,7 +1441,6 @@ class AppointmentWidgetSerializer(serializers.ModelSerializer):
         )
 
         for day_schedule_data in day_schedules_data:
-            print(day_schedule_data)
             day_schedule = DaySchedule.objects.create(**day_schedule_data)
             appointment_widget.day_schedules.add(day_schedule)
 
