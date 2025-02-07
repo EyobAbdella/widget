@@ -10,9 +10,10 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from zoneinfo import available_timezones
 from uuid import uuid4
-import re
-
 from widget.validators import validate_time_ranges
+from babel import Locale
+from babel.localedata import locale_identifiers
+import re
 
 
 CURRENCY_USD = "USD"
@@ -306,7 +307,9 @@ class WidgetData(models.Model):
     )
     script = models.TextField(null=True, blank=True)
     widget_fields = models.JSONField(default=list)
-    sheet_id = models.CharField(max_length=255, blank=True, null=True)
+    integration_google_sheets_id = models.CharField(
+        max_length=255, blank=True, null=True
+    )
     enable_google_integration = models.BooleanField(default=False)
     post_submit_action = models.CharField(max_length=20, choices=POST_SUBMIT_ACTION)
     success_msg = models.TextField(blank=True, null=True)
@@ -766,7 +769,7 @@ class AppointmentWidget(models.Model):
     )
     text_color = models.CharField(max_length=10)
     accent_color = models.CharField(max_length=10)
-    font_url = models.URLField(null=True, blank=True)
+    font = models.CharField(max_length=100, null=True, blank=True)
     client_notification = models.BooleanField(default=True)
     owner_notification = models.BooleanField(default=True)
     owner_email = models.EmailField()
@@ -791,11 +794,369 @@ class AppointmentWidget(models.Model):
             )
 
 
-class AppointmentData(models.Model):
-    appointment = models.ForeignKey(
-        AppointmentWidget, on_delete=models.CASCADE, related_name="appointment_data"
+# Version 2 Pricing Widget
+
+
+class PricingWidgetLanguageV2(models.Model):
+    LANGUAGE_CHOICES = [
+        ("en", "English"),
+        ("es", "Spanish"),
+        ("fr", "French"),
+        ("de", "German"),
+        ("it", "Italian"),
+        ("zh", "Chinese"),
+        ("ja", "Japanese"),
+    ]
+
+    language = models.CharField(
+        max_length=10,
+        choices=LANGUAGE_CHOICES,
     )
-    date = models.DateTimeField()
-    name = models.CharField(max_length=100)
-    email = models.EmailField()
-    notes = models.TextField()
+
+
+class PricingWidgetHeadFeaturesV2(models.Model):
+    text = models.CharField(max_length=255)
+    hint = models.CharField(max_length=255)
+
+
+class PricingWidgetFeaturesV2(models.Model):
+    text = models.CharField(max_length=255)
+    icon = models.FileField(upload_to="widget/images")
+
+
+class PricingWidgetButtonLinkV2(models.Model):
+    type = models.CharField(
+        max_length=10, choices=[("URL", "URL"), ("EMAIL", "EMAIL"), ("PHONE", "PHONE")]
+    )
+    value = models.CharField(max_length=255)
+    raw_value = models.CharField(max_length=255)
+    target = models.CharField(
+        max_length=10, choices=[("_self", "_self"), ("_blank", "_blank")]
+    )
+
+
+class PricingWidgetOldPriceV2(models.Model):
+    enabled = models.BooleanField(default=False)
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[MinValueValidator(0)]
+    )
+    min_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        null=True,
+        blank=True,
+    )
+    max_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        null=True,
+        blank=True,
+    )
+    custom_price = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+    )
+
+
+class PricingWidgetPriceV2(models.Model):
+    PERIOD_CHOICES = [
+        ("daily", "Daily"),
+        ("weekly", "Weekly"),
+        ("monthly", "Monthly"),
+        ("quarterly", "Quarterly"),
+        ("semi_annually", "Semi-Annually"),
+        ("annually", "Annually"),
+    ]
+
+    pricing_model = models.CharField(
+        max_length=20,
+        choices=[
+            ("fixed", "fixed"),
+            ("subscription", "subscription"),
+            ("from", "from"),
+            ("range", "range"),
+            ("per", "per"),
+            ("free", "free"),
+            ("custom", "custom"),
+        ],
+    )
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[MinValueValidator(0)]
+    )
+    currency = models.CharField(max_length=10, choices=CURRENCY_CHOICES)
+    min_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        null=True,
+        blank=True,
+    )
+    max_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        null=True,
+        blank=True,
+    )
+    period = models.CharField(
+        max_length=20,
+        choices=PERIOD_CHOICES,
+    )
+    unit = models.CharField(max_length=10)
+    custom_price = models.CharField(max_length=50, null=True, blank=True)
+
+
+class PricingWidgetDiscountV2(models.Model):
+    enabled = models.BooleanField(default=False)
+    custom_label = models.CharField(max_length=100)
+
+
+class PricingWidgetColumnV2(models.Model):
+    picture = models.ImageField(upload_to="widget/images")
+    title = models.CharField(max_length=255)
+    title_caption = models.CharField(max_length=255)
+    price_caption = models.CharField(max_length=255)
+    features = models.ManyToManyField(PricingWidgetFeaturesV2)
+    button_text = models.CharField(max_length=100)
+    button_caption = models.CharField(max_length=100)
+    button_link = models.ForeignKey(
+        PricingWidgetButtonLinkV2, models.SET_NULL, null=True
+    )
+    price = models.OneToOneField(
+        PricingWidgetPriceV2, on_delete=models.SET_NULL, null=True
+    )
+    old_price = models.OneToOneField(
+        PricingWidgetOldPriceV2, on_delete=models.SET_NULL, null=True
+    )
+    primary_color = models.CharField(max_length=20)
+    highlight_label = models.CharField(max_length=100)
+
+
+class PricingWidgetTableV2(models.Model):
+    name = models.CharField(max_length=255)
+    caption = models.CharField(max_length=255)
+    head_title = models.CharField(max_length=255)
+    head_features = models.ManyToManyField(PricingWidgetHeadFeaturesV2)
+    columns = models.ManyToManyField(PricingWidgetColumnV2)
+    visible = models.BooleanField(default=True)
+
+
+class PricingWidgetWidthV2(models.Model):
+    auto = models.BooleanField(default=True)
+    custom_value = models.PositiveIntegerField(null=True, blank=True)
+
+
+class PricingWidgetTitleTextStyleV2(models.Model):
+    font_size = models.PositiveIntegerField()
+    font_weight = models.CharField(max_length=10)
+    font_style = models.CharField(max_length=10)
+
+
+class PricingWidgetHeadTitleFontV2(models.Model):
+    font_size = models.PositiveIntegerField(default=24, null=True, blank=True)
+    font_weight = models.CharField(max_length=10, null=True, blank=True)
+    font_style = models.CharField(max_length=10, null=True, blank=True)
+
+
+class PricingWidgetDiscountFontV2(models.Model):
+    font_size = models.PositiveIntegerField(null=True, blank=True)
+    font_weight = models.CharField(max_length=10, null=True, blank=True)
+    font_style = models.CharField(max_length=10, null=True, blank=True)
+    text_transform = models.CharField(max_length=20, null=True, blank=True)
+
+
+class PricingWidgetTitleFontV2(models.Model):
+    font_size = models.PositiveIntegerField()
+    font_weight = models.CharField(max_length=10)
+    font_style = models.CharField(max_length=10)
+
+
+class PricingWidgetOldPriceFontV2(models.Model):
+    font_size = models.PositiveIntegerField()
+    font_weight = models.CharField(max_length=10)
+    font_style = models.CharField(max_length=10)
+
+
+class PricingWidgetPriceCaptionFontV2(models.Model):
+    font_size = models.PositiveIntegerField()
+    font_weight = models.CharField(max_length=10)
+    font_style = models.CharField(max_length=10)
+
+
+class PricingWidgetPriceFontV2(models.Model):
+    font_size = models.PositiveIntegerField()
+    font_weight = models.CharField(max_length=10)
+    font_style = models.CharField(max_length=10)
+
+
+class PricingWidgetTitleCaptionFontV2(models.Model):
+    font_size = models.PositiveIntegerField()
+    font_weight = models.CharField(max_length=10)
+    font_style = models.CharField(max_length=10)
+
+
+class PricingWidgetButtonFontV2(models.Model):
+    font_size = models.PositiveSmallIntegerField(default=18)
+    font_weight = models.CharField(max_length=20)
+
+
+class PricingWidgetButtonV2(models.Model):
+    text = models.CharField(max_length=200)
+    mode = models.CharField(
+        max_length=20, choices=[("filled", "filled"), ("outline", "outline")]
+    )
+    color = models.CharField(max_length=20)
+    label_color = models.CharField(max_length=20)
+    caption_color = models.CharField(max_length=20)
+    border_radius = models.PositiveSmallIntegerField(default=4)
+    horizontal_padding = models.PositiveSmallIntegerField(default=20)
+    vertical_padding = models.PositiveSmallIntegerField(default=10)
+    full_width = models.BooleanField(default=False)
+    size = models.PositiveSmallIntegerField()
+    font = models.OneToOneField(
+        PricingWidgetButtonFontV2, on_delete=models.SET_NULL, null=True
+    )
+
+
+class PricingWidgetSettingsV2(models.Model):
+    multiple_tables_mode = models.BooleanField()
+    language = models.OneToOneField(
+        PricingWidgetLanguageV2, on_delete=models.SET_NULL, null=True
+    )
+    tables = models.ManyToManyField(PricingWidgetTableV2)
+    layout = models.CharField(
+        max_length=20,
+        choices=[
+            ("comparison_table", "comparison_table"),
+            ("grid", "grid"),
+            ("classic_table", "classic_table"),
+            ("carousel", "carousel"),
+        ],
+    )
+    width = models.OneToOneField(
+        PricingWidgetWidthV2, on_delete=models.SET_NULL, null=True
+    )
+    show_widget_title = models.BooleanField(default=True)
+    widget_title = models.CharField(max_length=100, null=True, blank=True)
+    widget_title_caption = models.CharField(max_length=255, null=True, blank=True)
+    widget_title_color = models.CharField(max_length=20, null=True, blank=True)
+    widget_title_caption_color = models.CharField(max_length=20, null=True, blank=True)
+    widget_title_link_color = models.CharField(max_length=20, null=True, blank=True)
+    widget_title_alignment = models.CharField(
+        max_length=20,
+        choices=[("right", "right"), ("center", "center"), ("left", "left")],
+        null=True,
+        blank=True,
+    )
+    widget_title_text_style = models.OneToOneField(
+        PricingWidgetTitleTextStyleV2, on_delete=models.SET_NULL, null=True
+    )
+    widget_title_caption_font_size = models.CharField(
+        max_length=20, null=True, blank=True
+    )
+    column_style = models.CharField(
+        max_length=10,
+        choices=[
+            ("style1", "style1"),
+            ("style2", "style2"),
+            ("style3", "style3"),
+            ("style4", "style4"),
+            ("style5", "style5"),
+            ("style6", "style6"),
+        ],
+    )
+    primary_color = models.CharField(max_length=20)
+    secondary_color = models.CharField(max_length=20)
+    font = models.CharField(max_length=50, null=True, blank=True)
+    toggle_color = models.CharField(max_length=20, null=True, blank=True)
+    column_corner_radius = models.PositiveIntegerField(null=True, blank=True)
+    carousel_arrow_background_color = models.CharField(max_length=20)
+    carousel_arrow_color = models.CharField(max_length=20)
+    carousel_arrow_background_color_on_hover = models.CharField(max_length=20)
+    carousel_arrow_color_on_hover = models.CharField(max_length=20)
+    carousel_arrow_size = models.PositiveIntegerField(null=True, blank=True)
+    head_text_color = models.CharField(max_length=20, null=True, blank=True)
+    head_background_color = models.CharField(max_length=20, null=True, blank=True)
+    head_features_font_size = models.PositiveIntegerField(null=True, blank=True)
+    head_title_font = models.OneToOneField(
+        PricingWidgetHeadTitleFontV2, on_delete=models.SET_NULL, null=True
+    )
+    show_title = models.BooleanField(default=True)
+    title_alignment = models.CharField(
+        max_length=20,
+        choices=[("right", "right"), ("center", "center"), ("left", "left")],
+    )
+    title_text_color = models.CharField(max_length=20)
+    title_caption_color = models.CharField(max_length=20)
+    title_font = models.OneToOneField(
+        PricingWidgetTitleFontV2, on_delete=models.SET_NULL, null=True
+    )
+    title_caption_font = models.OneToOneField(
+        PricingWidgetTitleCaptionFontV2, on_delete=models.SET_NULL, null=True
+    )
+    show_features = models.BooleanField(default=True)
+    features_style = models.CharField(
+        max_length=10,
+        choices=[("plain", "plain"), ("divided", "divided"), ("striped", "striped")],
+    )
+    features_align = models.CharField(
+        max_length=20,
+        choices=[("right", "right"), ("center", "center"), ("left", "left")],
+    )
+    features_font_size = models.PositiveIntegerField()
+    features_icon_color = models.CharField(max_length=20, null=True, blank=True)
+    features_text_color = models.CharField(max_length=20)
+    show_price = models.BooleanField(default=True)
+    price_caption_color = models.CharField(max_length=20)
+    discount_text_color = models.CharField(max_length=20, null=True, blank=True)
+    discount_font = models.OneToOneField(
+        PricingWidgetDiscountFontV2, on_delete=models.SET_NULL, null=True
+    )
+    old_price_color = models.CharField(max_length=20, null=True, blank=True)
+    old_price_font = models.OneToOneField(
+        PricingWidgetOldPriceFontV2, on_delete=models.SET_NULL, null=True
+    )
+    discount = models.OneToOneField(
+        PricingWidgetDiscountV2, on_delete=models.SET_NULL, null=True
+    )
+    price_caption_font = models.OneToOneField(
+        PricingWidgetPriceCaptionFontV2, on_delete=models.SET_NULL, null=True
+    )
+    price_align = models.CharField(
+        max_length=20,
+        choices=[("right", "right"), ("center", "center"), ("left", "left")],
+    )
+    price_color = models.CharField(max_length=20)
+    price_font = models.OneToOneField(
+        PricingWidgetPriceFontV2, models.SET_NULL, null=True
+    )
+    show_picture = models.BooleanField(default=True)
+    picture_aspect_ratio = models.DecimalField(
+        max_digits=10, decimal_places=6, validators=[MinValueValidator(0)]
+    )
+    show_button = models.BooleanField(default=True)
+    button = models.OneToOneField(PricingWidgetButtonV2, on_delete=models.CASCADE)
+    button_alignment = models.CharField(
+        max_length=20,
+        choices=[("right", "right"), ("center", "center"), ("left", "left")],
+    )
+    highlight_style_type = models.CharField(
+        max_length=20,
+        choices=[("ribbon", "ribbon"), ("bar", "bar")],
+        null=True,
+        blank=True,
+    )
+    highlight_background_color = models.CharField(max_length=20, null=True, blank=True)
+    highlight_text_color = models.CharField(max_length=20, null=True, blank=True)
+    default_table = models.CharField(max_length=100, null=True, blank=True)
+
+
+class PricingWidgetV2(models.Model):
+    widget_id = models.UUIDField(default=uuid4, primary_key=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    settings = models.OneToOneField(PricingWidgetSettingsV2, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)

@@ -9,7 +9,6 @@
   link.href = `${staticFileEndpoint}/static/style.css`;
   document.head.appendChild(link);
 
-  // Google Font
   const googleFontLink = document.createElement("link");
   googleFontLink.rel = "stylesheet";
   googleFontLink.href =
@@ -26,6 +25,139 @@
   if (!uuid) {
     console.log("UUID not found in div class.");
     return;
+  }
+
+  function initializeSignaturePad(container) {
+    const signaturePads = container.querySelectorAll(
+      ".signature-pad-container"
+    );
+
+    signaturePads.forEach((container) => {
+      const canvas = container.querySelector("canvas");
+      const ctx = canvas.getContext("2d");
+      let isDrawing = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        canvas.style.width = "100%";
+        canvas.style.height = "200px";
+
+        canvas.width = rect.width * dpr;
+        canvas.height = 200 * dpr;
+
+        ctx.scale(dpr, dpr);
+
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+      }
+
+      resizeCanvas();
+      window.addEventListener("resize", resizeCanvas);
+
+      function getCanvasCoordinates(e) {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        const clientX =
+          e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const clientY =
+          e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
+        return {
+          x: (((clientX - rect.left) / rect.width) * canvas.width) / dpr,
+          y: (((clientY - rect.top) / rect.height) * canvas.height) / dpr,
+        };
+      }
+
+      function startDrawing(e) {
+        isDrawing = true;
+        const coords = getCanvasCoordinates(e);
+        lastX = coords.x;
+        lastY = coords.y;
+      }
+
+      function draw(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+
+        const coords = getCanvasCoordinates(e);
+
+        // Draw line
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+
+        lastX = coords.x;
+        lastY = coords.y;
+      }
+
+      function stopDrawing() {
+        if (!isDrawing) return;
+        isDrawing = false;
+
+        // Save signature data
+        const input = container.querySelector('input[type="hidden"]');
+        if (input) {
+          input.value = canvas.toDataURL();
+          const event = new Event("change", { bubbles: true });
+          input.dispatchEvent(event);
+        }
+      }
+
+      canvas.addEventListener("mousedown", startDrawing);
+      canvas.addEventListener("mousemove", draw);
+      canvas.addEventListener("mouseup", stopDrawing);
+      canvas.addEventListener("mouseout", stopDrawing);
+
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          e.preventDefault();
+          startDrawing(e.touches[0]);
+        },
+        { passive: false }
+      );
+
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+          draw(e.touches[0]);
+        },
+        { passive: false }
+      );
+
+      canvas.addEventListener(
+        "touchend",
+        (e) => {
+          e.preventDefault();
+          stopDrawing();
+        },
+        { passive: false }
+      );
+
+      const clearButton = container.nextElementSibling?.querySelector(
+        ".signature-clear-button"
+      );
+      if (clearButton) {
+        clearButton.addEventListener("click", () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const input = container.querySelector('input[type="hidden"]');
+          if (input) {
+            input.value = "";
+            const event = new Event("change", { bubbles: true });
+            input.dispatchEvent(event);
+          }
+        });
+      }
+    });
   }
 
   function submitFormDataWithFiles(url, formData) {
@@ -70,15 +202,12 @@
                 'input[type="radio"], input[type="checkbox"]'
               );
               let isChecked = false;
-              console.log(type, choice);
               for (const selectedChoice of choice) {
                 if (selectedChoice.checked) {
-                  // console.log(type, selectedChoice.checked);
                   isChecked = true;
                   break;
                 }
               }
-              // console.log(isChecked);
               if (isChecked) {
                 errorDiv.textContent = "";
               } else {
@@ -131,11 +260,13 @@
           const choices = element.querySelectorAll(
             'input[name="multiple-choice"]:checked'
           );
-          console.log(Array.from(choices).map((checkbox) => checkbox.value));
           formData.append(
             originalId,
             Array.from(choices).map((checkbox) => checkbox.value)
           );
+        } else if (type === "signature") {
+          const signatureInput = element.querySelector('input[type="hidden"]');
+          formData.append(originalId, signatureInput.value);
         } else {
           formData.append(originalId, element.value.trim());
         }
@@ -218,6 +349,9 @@
 
         widgetDiv.innerHTML = res.html;
 
+        // Initialize signature pads after loading widget
+        initializeSignaturePad(widgetDiv);
+
         const preFillValues = res.pre_fill_values;
         const spam_protection = res.spam_protection;
 
@@ -257,7 +391,7 @@
         const form = widgetDiv.querySelector("form");
         const fields = Array.from(
           form.querySelectorAll(
-            "[role='radiogroup'], [data-type='multiple_choice'], [data-type='consent'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea"
+            "[role='radiogroup'], [data-type='multiple_choice'], [data-type='consent'], [data-type='choice'], input:not([type='radio']):not([type='checkbox']), select, textarea, .signature-pad-container"
           )
         ).map((element) => {
           return {
@@ -268,7 +402,7 @@
               element.getAttribute("data-type") ||
               (element.tagName.toLowerCase() === "textarea"
                 ? "textarea"
-                : element.getAttribute("type")),
+                : element.getAttribute("type") || "signature"),
           };
         });
 

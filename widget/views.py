@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.core.mail import send_mail
@@ -6,18 +7,18 @@ from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework import status
+
+from widget.tasks import handle_google_sheet_integration, send_email_notifications
 from .permissions import IsAdminOrReadOnly
-from .utils import create_sheet, write_sheet
 from .serializers import (
     AppointmentDataSerializer,
     AppointmentWidgetSerializer,
     FormTemplateSerializer,
     ImageUploadSerializer,
-    SubmittedDataSerializer,
+    PricingWidgetV2Serializer,
     WidgetSerializer,
-    # Pricing widget serializers
     ContainerSerializer,
     CreateContainerSerializer,
 )
@@ -25,6 +26,7 @@ from .models import (
     AppointmentWidget,
     FormTemplate,
     ImageUpload,
+    PricingWidgetV2,
     SubmittedData,
     WidgetData,
     WidgetFile,
@@ -61,10 +63,36 @@ class WidgetCodeView(APIView):
             field_values, errors = self._process_fields(request, widget)
             if errors:
                 return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
-
-            self._handle_sheet_integration(widget, field_values)
-
-            self._send_email_notifications(widget, field_values)
+            email_receiver = next(
+                (i for i in field_values if i.get("type") == "email"), None
+            )
+            user_data = "\n".join(
+                [f"{item['label']}: {item['value']}" for item in field_values]
+            )
+            if widget.user.is_oauth:
+                handle_google_sheet_integration.delay(
+                    widget_id=widget.id,
+                    model_name="widget.WidgetData",
+                    values=[item["value"] for item in field_values],
+                    sheet_header=[item["label"].lower() for item in field_values],
+                )
+            user_data = "\n".join(
+                [f"{item['label']}: {item['value']}" for item in field_values]
+            )
+            if email_receiver and widget.email_notification.auto_responder_email:
+                send_email_notifications.delay(
+                    subject=widget.email_notification.response_subject,
+                    body=widget.email_notification.response_message,
+                    sender=widget.user,
+                    recipients_list=[email_receiver.get("value")],
+                )
+            if widget.is_email_notification:
+                send_email_notifications.delay(
+                    subject=widget.email_notification.subject,
+                    body=f"{widget.email_notification.message}\n{user_data}",
+                    sender=widget.email_notification.sender_name,
+                    recipients_list=widget.email_notification.email,
+                )
 
             self._save_submitted_data(uuid, field_values)
 
@@ -120,26 +148,6 @@ class WidgetCodeView(APIView):
                     )
 
         return field_values, errors
-
-    def _handle_sheet_integration(self, widget, field_values):
-        if widget.sheet_id:
-            write_sheet(
-                widget.user,
-                widget.sheet_id,
-                [[item["value"] for item in field_values]],
-            )
-        else:
-            sheet_id = create_sheet(widget.user, widget.name)
-            write_sheet(
-                widget.user,
-                sheet_id,
-                [
-                    [item["label"].lower() for item in field_values],
-                    [item["value"] for item in field_values],
-                ],
-            )
-            widget.sheet_id = sheet_id
-            widget.save()
 
     def _send_email_notifications(self, widget, field_values):
         email_receiver = next(
@@ -239,25 +247,25 @@ class DownloadSubmittedDataView(APIView):
         return response
 
 
-class SubmittedDataView(viewsets.ModelViewSet):
-    http_method_names = ["get"]
-    serializer_class = SubmittedDataSerializer
-    permission_classes = [IsAuthenticated]
+# class SubmittedDataView(viewsets.ModelViewSet):
+#     http_method_names = ["get"]
+#     serializer_class = SubmittedDataSerializer
+#     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        widget_id = self.kwargs["widget_pk"]
-        return SubmittedData.objects.filter(widget__id=widget_id)
+#     def get_queryset(self):
+#         widget_id = self.kwargs["widget_pk"]
+#         return SubmittedData.objects.filter(widget__id=widget_id)
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
+#     def list(self, request, *args, **kwargs):
+#         queryset = self.get_queryset()
 
-        total_submissions = queryset.count()
+#         total_submissions = queryset.count()
 
-        serializer = self.get_serializer(queryset, many=True)
+#         serializer = self.get_serializer(queryset, many=True)
 
-        return Response(
-            {"total_submissions": total_submissions, "submissions": serializer.data}
-        )
+#         return Response(
+#             {"total_submissions": total_submissions, "submissions": serializer.data}
+#         )
 
 
 class FormTemplateViewSet(viewsets.ModelViewSet):
@@ -328,17 +336,55 @@ class AppointmentViewSet(APIView):
     def post(self, request, uuid):
         try:
             queryset = AppointmentWidget.objects.get(id=uuid)
-            serializers = AppointmentDataSerializer(
-                data=request.data, context={"appointment_id": uuid}
-            )
+            serializers = AppointmentDataSerializer(data=request.data)
             serializers.is_valid(raise_exception=True)
-            serializers.save()
-            return Response(
-                {"message": "Appointment data saved successfully."},
-                status=status.HTTP_201_CREATED,
-            )
+
+            response_data = {"message": "Appointment booked successfully!"}
+            response = Response(response_data, status=status.HTTP_201_CREATED)
+
+            if queryset.user.is_oauth:
+                handle_google_sheet_integration.delay(
+                    widget_id=queryset.id,
+                    model_name="widget.AppointmentWidget",
+                    values=list(serializers.data.values()),
+                    sheet_header=["Name", "Email", "Date Time", "Note"],
+                )
+
+            if queryset.owner_notification and queryset.owner_email:
+                send_email_notifications.delay(
+                    subject="New Appointment Booked",
+                    body=f"Hi {queryset.owner_email},\n\nA new appointment has been booked.",
+                    sender=queryset.owner_email,
+                    recipients_list=[queryset.owner_email],
+                )
+            if queryset.client_notification and serializers.data.get("email"):
+                send_email_notifications.delay(
+                    subject=f"Appointment Confirmation – {queryset.business_name}",
+                    body=f"Hi {serializers.data.get('name')},\n\nYour appointment for {queryset.service.name} is confirmed!",
+                    sender=queryset.user.email,
+                    recipients_list=[serializers.data.get("email")],
+                )
+
+            return response
         except AppointmentWidget.DoesNotExist:
             return Response(
                 {"error": "Appointment Widget not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+# Version 2 Pricing Widget
+
+
+class PricingWidgetViewSetV2(ModelViewSet):
+    serializer_class = PricingWidgetV2Serializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        widget_id = self.kwargs.get("pk")
+        if self.request.user.is_authenticated:
+            return PricingWidgetV2.objects.filter(user_id=self.request.user.id)
+        return PricingWidgetV2.objects.filter(widget_id=widget_id)
+
+    def get_serializer_context(self):
+        return {"request": self.request}

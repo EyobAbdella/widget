@@ -143,11 +143,11 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"  # "localhost"
-EMAIL_PORT = 587  # 2525
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+EMAIL_HOST = "localhost"  # "smtp.gmail.com"  # "localhost"
+EMAIL_PORT = 2525  # 587  # 2525
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+# EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 
 
 GOOGLE_OAUTH2_CLIENT_ID = os.environ.get("GOOGLE_OAUTH2_CLIENT_ID")
@@ -157,3 +157,6 @@ REDIRECT_URL = "https://contact.myfindata.com/google-oauth"
 # REDIRECT_URL = "http://127.0.0.1:8000/oauth/google-oauth2/callback/"
 RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY")
 RECAPTCHA_SECRET_KEY = os.environ.get("RECAPTCHA_SECRET_KEY")
+
+
+CELERY_BROKER_URL = "redis://localhost:6379/1"

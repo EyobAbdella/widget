@@ -4,16 +4,16 @@
 
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = `${staticEndpoint}/index.css`;
+  link.href = `${staticEndpoint}/pricing.css`;
   document.head.appendChild(link);
 
   const script = document.createElement("script");
-  script.src = `${staticEndpoint}/appointment.js`;
+  script.src = `${staticEndpoint}/pricing.js`;
   script.defer = true;
   script.charset = "UTF-8";
 
   script.onload = function () {
-    console.log("appointment.js loaded successfully");
+    console.log("pricing.js loaded successfully");
     const widgetDiv = document.querySelector('div[class^="cont-app-"]');
 
     if (!widgetDiv) {
@@ -23,7 +23,7 @@
 
     const uuid = widgetDiv.className.split("cont-app-")[1];
 
-    fetch(`${endpointURL}/booking/${uuid}`)
+    fetch(`${endpointURL}/v2/pricing/${uuid}/`)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

@@ -10,8 +10,10 @@ router.register(
     "appointment", views.AppointmentWidgetViewSet, basename="AppointmentWidget"
 )
 router.register("image", views.ImageUploadViewSet)
+router.register("v2/pricing", views.PricingWidgetViewSetV2, basename="Pricing Widget")
 widget_data = NestedDefaultRouter(router, "form", lookup="widget")
-widget_data.register("data", views.SubmittedDataView, basename="Submitted Data")
+# widget_data.register("data", views.SubmittedDataView, basename="Submitted Data")
+
 
 urlpatterns = [
     path("<uuid:uuid>", views.WidgetCodeView.as_view()),

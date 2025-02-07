@@ -3,7 +3,6 @@ from rest_framework import serializers
 from widget.models import (
     AdminBrandInfo,
     AppointmentBackground,
-    AppointmentData,
     AppointmentPrice,
     AppointmentService,
     AppointmentWidget,
@@ -31,6 +30,7 @@ from widget.models import (
     PreFill,
     PricingCustomPictureSize,
     PricingWidgetImageSettings,
+    PricingWidgetLanguageV2,
     SpecialIntervals,
     SubmitButton,
     SubmittedData,
@@ -51,6 +51,28 @@ from widget.models import (
     Container,
     PriceAppearance,
     TitleAppearance,
+    PricingWidgetLanguageV2,
+    PricingWidgetHeadFeaturesV2,
+    PricingWidgetFeaturesV2,
+    PricingWidgetButtonLinkV2,
+    PricingWidgetOldPriceV2,
+    PricingWidgetPriceV2,
+    PricingWidgetDiscountV2,
+    PricingWidgetColumnV2,
+    PricingWidgetTableV2,
+    PricingWidgetWidthV2,
+    PricingWidgetTitleTextStyleV2,
+    PricingWidgetHeadTitleFontV2,
+    PricingWidgetDiscountFontV2,
+    PricingWidgetTitleFontV2,
+    PricingWidgetOldPriceFontV2,
+    PricingWidgetPriceCaptionFontV2,
+    PricingWidgetPriceFontV2,
+    PricingWidgetTitleCaptionFontV2,
+    PricingWidgetButtonFontV2,
+    PricingWidgetButtonV2,
+    PricingWidgetSettingsV2,
+    PricingWidgetV2,
 )
 
 
@@ -313,7 +335,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "html",
             "script",
             "script_url",
-            "sheet_id",
+            "integration_google_sheets_id",
             "widget_fields",
             "redirect_url",
             "success_msg",
@@ -337,7 +359,12 @@ class WidgetSerializer(serializers.ModelSerializer):
             "custom_js",
             "total_submissions",
         ]
-        read_only_fields = ["id", "user", "total_submissions", "sheet_id"]
+        read_only_fields = [
+            "id",
+            "user",
+            "total_submissions",
+            "integration_google_sheets_id",
+        ]
 
     def get_script_url(self, obj):
         if not self.context.get("request"):
@@ -1366,11 +1393,12 @@ class AppointmentServiceSerializer(serializers.ModelSerializer):
 class AppointmentWidgetSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     service = AppointmentServiceSerializer()
-    day_schedules = DayScheduleSerializer(many=True)
-    special_intervals = SpecialIntervalsSerializer(many=True)
+    day_schedules = DayScheduleSerializer(many=True, required=False)
+    special_intervals = SpecialIntervalsSerializer(many=True, required=False)
     width = AppointmentWidthSerializer()
     background = AppointmentBackgroundSerializer()
     integration_google_sheets_id = serializers.CharField(read_only=True)
+    trigger_button_icon = serializers.ImageField(required=False)
 
     class Meta:
         model = AppointmentWidget
@@ -1403,7 +1431,7 @@ class AppointmentWidgetSerializer(serializers.ModelSerializer):
             "background",
             "text_color",
             "accent_color",
-            "font_url",
+            "font",
             "client_notification",
             "owner_notification",
             "owner_email",
@@ -1508,13 +1536,640 @@ class AppointmentWidgetSerializer(serializers.ModelSerializer):
         return instance
 
 
-class AppointmentDataSerializer(serializers.ModelSerializer):
+class AppointmentDataSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    email = serializers.EmailField()
+    date = serializers.DateTimeField(format="%B %d, %Y %I:%M %p")
+    notes = serializers.CharField()
+
+
+# Version 2 Pricing Widget
+
+
+class PricingWidgetLanguageV2Serializer(serializers.ModelSerializer):
     class Meta:
-        model = AppointmentData
-        fields = ["id", "date", "name", "email", "notes"]
+        model = PricingWidgetLanguageV2
+        fields = ["id", "language"]
+
+
+class PricingWidgetHeadFeaturesV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetHeadFeaturesV2
+        fields = ["id", "text", "hint"]
+
+
+class PricingWidgetFeaturesV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetFeaturesV2
+        fields = ["id", "text", "icon"]
+
+
+class PricingWidgetButtonLinkV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetButtonLinkV2
+        fields = ["id", "type", "value", "raw_value", "target"]
+
+
+class PricingWidgetOldPriceV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetOldPriceV2
+        fields = ["id", "enabled", "price", "min_price", "max_price", "custom_price"]
+
+
+class PricingWidgetPriceV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetPriceV2
+        fields = [
+            "id",
+            "pricing_model",
+            "price",
+            "currency",
+            "min_price",
+            "max_price",
+            "period",
+            "unit",
+            "custom_price",
+        ]
+
+
+class PricingWidgetDiscountV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetDiscountV2
+        fields = ["id", "enabled", "custom_label"]
+
+
+class PricingWidgetWidthV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetWidthV2
+        fields = ["id", "auto", "custom_value"]
+
+
+class PricingWidgetTitleTextStyleV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetTitleTextStyleV2
+        fields = ["id", "font_size", "font_weight", "font_style"]
+
+
+class PricingWidgetHeadTitleFontV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetHeadTitleFontV2
+        fields = ["id", "font_size", "font_weight", "font_style"]
+
+
+class PricingWidgetDiscountFontV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetDiscountFontV2
+        fields = ["id", "font_size", "font_weight", "font_style", "text_transform"]
+
+
+class PricingWidgetTitleFontV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetTitleFontV2
+        fields = ["id", "font_size", "font_weight", "font_style"]
+
+
+class PricingWidgetOldPriceFontV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetOldPriceFontV2
+        fields = ["id", "font_size", "font_weight", "font_style"]
+
+
+class PricingWidgetPriceCaptionFontV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetPriceCaptionFontV2
+        fields = ["id", "font_size", "font_weight", "font_style"]
+
+
+class PricingWidgetPriceFontV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetPriceFontV2
+        fields = ["id", "font_size", "font_weight", "font_style"]
+
+
+class PricingWidgetTitleCaptionFontV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetTitleCaptionFontV2
+        fields = ["id", "font_size", "font_weight", "font_style"]
+
+
+class PricingWidgetButtonFontV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingWidgetButtonFontV2
+        fields = ["id", "font_size", "font_weight"]
+
+
+class PricingWidgetButtonV2Serializer(serializers.ModelSerializer):
+    font = PricingWidgetButtonFontV2Serializer()
+
+    class Meta:
+        model = PricingWidgetButtonV2
+        fields = [
+            "id",
+            "text",
+            "mode",
+            "color",
+            "label_color",
+            "caption_color",
+            "border_radius",
+            "horizontal_padding",
+            "vertical_padding",
+            "full_width",
+            "size",
+            "font",
+        ]
 
     def create(self, validated_data):
-        appointment_id = self.context.get("appointment_id")
-        return AppointmentData.objects.create(
-            appointment_id=appointment_id, **validated_data
+        font_data = validated_data.pop("font")
+        font = PricingWidgetButtonFontV2.objects.create(**font_data)
+        button = PricingWidgetButtonV2.objects.create(font=font, **validated_data)
+        return button
+
+    def update(self, instance, validated_data):
+        font_data = validated_data.pop("font", None)
+        font_serializer = PricingWidgetButtonFontV2Serializer(
+            instance.font, data=font_data, partial=True
         )
+        font_serializer.is_valid(raise_exception=True)
+        font_serializer.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class PricingWidgetColumnV2Serializer(serializers.ModelSerializer):
+    features = PricingWidgetFeaturesV2Serializer(many=True)
+    button_link = PricingWidgetButtonLinkV2Serializer()
+    price = PricingWidgetPriceV2Serializer()
+    old_price = PricingWidgetOldPriceV2Serializer()
+
+    class Meta:
+        model = PricingWidgetColumnV2
+        fields = [
+            "id",
+            "picture",
+            "title",
+            "title_caption",
+            "price_caption",
+            "features",
+            "button_text",
+            "button_caption",
+            "button_link",
+            "price",
+            "old_price",
+            "primary_color",
+            "highlight_label",
+        ]
+
+    def create(self, validated_data):
+        features_data = validated_data.pop("features")
+        button_link_data = validated_data.pop("button_link")
+        price_data = validated_data.pop("price")
+        old_price_data = validated_data.pop("old_price")
+
+        button_link = PricingWidgetButtonLinkV2.objects.create(**button_link_data)
+        price = PricingWidgetPriceV2.objects.create(**price_data)
+        old_price = PricingWidgetOldPriceV2.objects.create(**old_price_data)
+
+        column = PricingWidgetColumnV2.objects.create(
+            button_link=button_link, price=price, old_price=old_price, **validated_data
+        )
+
+        for feature_data in features_data:
+            feature = PricingWidgetFeaturesV2.objects.create(**feature_data)
+            column.features.add(feature)
+
+        return column
+
+    def update(self, instance, validated_data):
+        features_data = validated_data.pop("features")
+        button_link_data = validated_data.pop("button_link")
+        price_data = validated_data.pop("price")
+        old_price_data = validated_data.pop("old_price")
+
+        button_link_serializer = PricingWidgetButtonLinkV2Serializer(
+            instance.button_link, data=button_link_data, partial=True
+        )
+        button_link_serializer.is_valid(raise_exception=True)
+        button_link_serializer.save()
+
+        price_serializer = PricingWidgetPriceV2Serializer(
+            instance.price, data=price_data, partial=True
+        )
+        price_serializer.is_valid(raise_exception=True)
+        price_serializer.save()
+
+        old_price_serializer = PricingWidgetOldPriceV2Serializer(
+            instance.old_price, data=old_price_data, partial=True
+        )
+        old_price_serializer.is_valid(raise_exception=True)
+        old_price_serializer.save()
+
+        instance.features.clear()
+        for feature_data in features_data:
+            feature = PricingWidgetFeaturesV2.objects.create(**feature_data)
+            instance.features.add(feature)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class PricingWidgetTableV2Serializer(serializers.ModelSerializer):
+    head_features = PricingWidgetHeadFeaturesV2Serializer(many=True)
+    columns = PricingWidgetColumnV2Serializer(many=True)
+
+    class Meta:
+        model = PricingWidgetTableV2
+        fields = [
+            "id",
+            "name",
+            "caption",
+            "head_title",
+            "head_features",
+            "columns",
+            "visible",
+        ]
+
+    def create(self, validated_data):
+        head_features_data = validated_data.pop("head_features", [])
+        columns_data = validated_data.pop("columns", [])
+
+        table = PricingWidgetTableV2.objects.create(**validated_data)
+
+        for head_feature_data in head_features_data:
+            head_feature = PricingWidgetHeadFeaturesV2.objects.create(
+                **head_feature_data
+            )
+            table.head_features.add(head_feature)
+
+        for column_data in columns_data:
+            column_serializer = PricingWidgetColumnV2Serializer(data=column_data)
+            column_serializer.is_valid(raise_exception=True)
+            column = column_serializer.save()
+            table.columns.add(column)
+
+        return table
+
+    def update(self, instance, validated_data):
+        head_features_data = validated_data.pop("head_features", None)
+        columns_data = validated_data.pop("columns", None)
+
+        instance.head_features.clear()
+        for head_feature_data in head_features_data:
+            head_feature = PricingWidgetHeadFeaturesV2.objects.create(
+                **head_feature_data
+            )
+            instance.head_features.add(head_feature)
+
+        instance.columns.clear()
+        for column_data in columns_data:
+            column_serializer = PricingWidgetColumnV2Serializer(data=column_data)
+            column_serializer.is_valid(raise_exception=True)
+            column = column_serializer.save()
+            instance.columns.add(column)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class PricingWidgetSettingsV2Serializer(serializers.ModelSerializer):
+    language = PricingWidgetLanguageV2Serializer()
+    tables = PricingWidgetTableV2Serializer(many=True, required=False)
+    width = PricingWidgetWidthV2Serializer()
+    widget_title_text_style = PricingWidgetTitleTextStyleV2Serializer(required=False)
+    head_title_font = PricingWidgetHeadTitleFontV2Serializer()
+    title_font = PricingWidgetTitleFontV2Serializer()
+    title_caption_font = PricingWidgetTitleCaptionFontV2Serializer()
+    discount_font = PricingWidgetDiscountFontV2Serializer()
+    old_price_font = PricingWidgetOldPriceFontV2Serializer()
+    price_caption_font = PricingWidgetPriceCaptionFontV2Serializer()
+    price_font = PricingWidgetPriceFontV2Serializer()
+    button = PricingWidgetButtonV2Serializer()
+    discount = PricingWidgetDiscountV2Serializer()
+
+    class Meta:
+        model = PricingWidgetSettingsV2
+        fields = [
+            "id",
+            "multiple_tables_mode",
+            "language",
+            "tables",
+            "layout",
+            "width",
+            "show_widget_title",
+            "widget_title",
+            "widget_title_caption",
+            "widget_title_color",
+            "widget_title_caption_color",
+            "widget_title_link_color",
+            "widget_title_alignment",
+            "widget_title_text_style",
+            "widget_title_caption_font_size",
+            "column_style",
+            "primary_color",
+            "secondary_color",
+            "font",
+            "toggle_color",
+            "column_corner_radius",
+            "carousel_arrow_background_color",
+            "carousel_arrow_color",
+            "carousel_arrow_background_color_on_hover",
+            "carousel_arrow_color_on_hover",
+            "carousel_arrow_size",
+            "head_text_color",
+            "head_background_color",
+            "head_features_font_size",
+            "head_title_font",
+            "show_title",
+            "title_alignment",
+            "title_text_color",
+            "title_caption_color",
+            "title_font",
+            "title_caption_font",
+            "show_features",
+            "features_style",
+            "features_align",
+            "features_font_size",
+            "features_icon_color",
+            "features_text_color",
+            "show_price",
+            "price_caption_color",
+            "discount_text_color",
+            "discount_font",
+            "old_price_color",
+            "old_price_font",
+            "discount",
+            "price_caption_font",
+            "price_align",
+            "price_color",
+            "price_font",
+            "show_picture",
+            "picture_aspect_ratio",
+            "show_button",
+            "button",
+            "button_alignment",
+            "highlight_style_type",
+            "highlight_background_color",
+            "highlight_text_color",
+            "default_table",
+        ]
+
+    def create(self, validated_data):
+        language_data = validated_data.pop("language")
+        tables_data = validated_data.pop("tables")
+        width_data = validated_data.pop("width")
+        widget_title_text_style_data = validated_data.pop(
+            "widget_title_text_style", None
+        )
+        head_title_font_data = validated_data.pop("head_title_font", None)
+        title_font_data = validated_data.pop("title_font")
+        title_caption_font_data = validated_data.pop("title_caption_font")
+        discount_font_data = validated_data.pop("discount_font", None)
+        old_price_font_data = validated_data.pop("old_price_font", None)
+        discount_data = validated_data.pop("discount", None)
+        price_caption_font_data = validated_data.pop("price_caption_font")
+        price_font_data = validated_data.pop("price_font")
+        button_data = validated_data.pop("button")
+        button_font_data = button_data.pop("font")
+
+        language = PricingWidgetLanguageV2.objects.create(**language_data)
+        width = PricingWidgetWidthV2.objects.create(**width_data)
+        widget_title_text_style = None
+        if widget_title_text_style_data:
+            widget_title_text_style = PricingWidgetTitleTextStyleV2.objects.create(
+                **widget_title_text_style_data
+            )
+
+        discount = None
+        if discount_data:
+            discount = PricingWidgetDiscountV2.objects.create(**discount_data)
+
+        head_title_font = None
+        if head_title_font_data:
+            head_title_font = PricingWidgetHeadTitleFontV2.objects.create(
+                **head_title_font_data
+            )
+        title_font = PricingWidgetTitleFontV2.objects.create(**title_font_data)
+        title_caption_font = PricingWidgetTitleCaptionFontV2.objects.create(
+            **title_caption_font_data
+        )
+        discount_font = None
+        if discount_font_data:
+            discount_font = PricingWidgetDiscountFontV2.objects.create(
+                **discount_font_data
+            )
+        old_price_font = None
+        if old_price_font_data:
+            old_price_font = PricingWidgetOldPriceFontV2.objects.create(
+                **old_price_font_data
+            )
+        price_caption_font = PricingWidgetPriceCaptionFontV2.objects.create(
+            **price_caption_font_data
+        )
+        price_font = PricingWidgetPriceFontV2.objects.create(**price_font_data)
+        button_font = PricingWidgetButtonFontV2.objects.create(**button_font_data)
+        button = PricingWidgetButtonV2.objects.create(**button_data, font=button_font)
+
+        settings = PricingWidgetSettingsV2.objects.create(
+            language=language,
+            width=width,
+            widget_title_text_style=widget_title_text_style,
+            head_title_font=head_title_font,
+            title_font=title_font,
+            title_caption_font=title_caption_font,
+            discount_font=discount_font,
+            old_price_font=old_price_font,
+            discount=discount,
+            price_caption_font=price_caption_font,
+            price_font=price_font,
+            button=button,
+            **validated_data,
+        )
+
+        for table_data in tables_data:
+            table_serializer = PricingWidgetTableV2Serializer(data=table_data)
+            table_serializer.is_valid(raise_exception=True)
+            table = table_serializer.save()
+            settings.tables.add(table)
+
+        return settings
+
+    def update(self, instance, validated_data):
+        language_data = validated_data.pop("language", None)
+        tables_data = validated_data.pop("tables", [])
+        width_data = validated_data.pop("width", None)
+        widget_title_text_style_data = validated_data.pop(
+            "widget_title_text_style", None
+        )
+        head_title_font_data = validated_data.pop("head_title_font", None)
+        title_font_data = validated_data.pop("title_font", None)
+        title_caption_font_data = validated_data.pop("title_caption_font", None)
+        discount_font_data = validated_data.pop("discount_font", None)
+        old_price_font_data = validated_data.pop("old_price_font", None)
+        price_caption_font_data = validated_data.pop("price_caption_font", None)
+        price_font_data = validated_data.pop("price_font", None)
+        button_data = validated_data.pop("button", None)
+
+        if language_data:
+            if instance.language:
+                for attr, value in language_data.items():
+                    setattr(instance.language, attr, value)
+                instance.language.save()
+            else:
+                instance.language = PricingWidgetLanguageV2.objects.create(
+                    **language_data
+                )
+
+        if width_data:
+            if instance.width:
+                for attr, value in width_data.items():
+                    setattr(instance.width, attr, value)
+                instance.width.save()
+            else:
+                instance.width = PricingWidgetWidthV2.objects.create(**width_data)
+
+        if widget_title_text_style_data:
+            if instance.widget_title_text_style:
+                for attr, value in widget_title_text_style_data.items():
+                    setattr(instance.widget_title_text_style, attr, value)
+                instance.widget_title_text_style.save()
+            else:
+                instance.widget_title_text_style = (
+                    PricingWidgetTitleTextStyleV2.objects.create(
+                        **widget_title_text_style_data
+                    )
+                )
+
+        if head_title_font_data:
+            if instance.head_title_font:
+                for attr, value in head_title_font_data.items():
+                    setattr(instance.head_title_font, attr, value)
+                instance.head_title_font.save()
+            else:
+                instance.head_title_font = PricingWidgetHeadTitleFontV2.objects.create(
+                    **head_title_font_data
+                )
+
+        if title_font_data:
+            if instance.title_font:
+                for attr, value in title_font_data.items():
+                    setattr(instance.title_font, attr, value)
+                instance.title_font.save()
+            else:
+                instance.title_font = PricingWidgetTitleFontV2.objects.create(
+                    **title_font_data
+                )
+
+        if title_caption_font_data:
+            if instance.title_caption_font:
+                for attr, value in title_caption_font_data.items():
+                    setattr(instance.title_caption_font, attr, value)
+                instance.title_caption_font.save()
+            else:
+                instance.title_caption_font = (
+                    PricingWidgetTitleCaptionFontV2.objects.create(
+                        **title_caption_font_data
+                    )
+                )
+
+        if discount_font_data:
+            if instance.discount_font:
+                for attr, value in discount_font_data.items():
+                    setattr(instance.discount_font, attr, value)
+                instance.discount_font.save()
+            else:
+                instance.discount_font = PricingWidgetDiscountFontV2.objects.create(
+                    **discount_font_data
+                )
+
+        if old_price_font_data:
+            if instance.old_price_font:
+                for attr, value in old_price_font_data.items():
+                    setattr(instance.old_price_font, attr, value)
+                instance.old_price_font.save()
+            else:
+                instance.old_price_font = PricingWidgetOldPriceFontV2.objects.create(
+                    **old_price_font_data
+                )
+
+        if price_caption_font_data:
+            if instance.price_caption_font:
+                for attr, value in price_caption_font_data.items():
+                    setattr(instance.price_caption_font, attr, value)
+                instance.price_caption_font.save()
+            else:
+                instance.price_caption_font = (
+                    PricingWidgetPriceCaptionFontV2.objects.create(
+                        **price_caption_font_data
+                    )
+                )
+
+        if price_font_data:
+            if instance.price_font:
+                for attr, value in price_font_data.items():
+                    setattr(instance.price_font, attr, value)
+                instance.price_font.save()
+            else:
+                instance.price_font = PricingWidgetPriceFontV2.objects.create(
+                    **price_font_data
+                )
+
+        if button_data:
+            if instance.button:
+                for attr, value in button_data.items():
+                    setattr(instance.button, attr, value)
+                instance.button.save()
+            else:
+                instance.button = PricingWidgetButtonV2.objects.create(**button_data)
+
+        if tables_data:
+            instance.tables.clear()
+            for table_data in tables_data:
+                table_serializer = PricingWidgetTableV2Serializer(
+                    data=table_data, partial=True
+                )
+                table_serializer.is_valid(raise_exception=True)
+                table = table_serializer.save()
+                instance.tables.add(table)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
+
+class PricingWidgetV2Serializer(serializers.ModelSerializer):
+    settings = PricingWidgetSettingsV2Serializer(required=False)
+
+    class Meta:
+        model = PricingWidgetV2
+        fields = ["widget_id", "name", "settings", "created_at"]
+        read_only_fields = ["widget_id"]
+
+    def create(self, validated_data):
+        user_id = self.context.get("request").user.id
+        settings_data = validated_data.pop("settings")
+        settings_serializer = PricingWidgetSettingsV2Serializer(data=settings_data)
+        settings_serializer.is_valid(raise_exception=True)
+        settings = settings_serializer.save()
+        return PricingWidgetV2.objects.create(
+            user_id=user_id, settings=settings, **validated_data
+        )
+
+    def update(self, instance, validated_data):
+        settings_data = validated_data.get("settings")
+        if settings_data:
+            settings_serializer = PricingWidgetSettingsV2Serializer(
+                instance.settings, data=settings_data, partial=True
+            )
+            settings_serializer.is_valid(raise_exception=True)
+            settings_serializer.save()
+
+        instance.name = validated_data.get("name", instance.name)
+        instance.save()
+        return instance

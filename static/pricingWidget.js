@@ -1,12 +1,12 @@
 (function () {
-  const staticEndpoint = "https://widgetcontact.myfindata.com/static/style.css";
-  //   const staticEndpoint = "http://localhost:8000/static/style.css";
+  // const staticEndpoint = "https://widgetcontact.myfindata.com/static/style.css";
+  const staticEndpoint = "http://localhost:8000/static/style.css";
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = staticEndpoint;
   document.head.appendChild(link);
-  const endpointURL = "https://widgetcontact.myfindata.com";
-  //   const endpointURL = "http://localhost:8000";
+  // const endpointURL = "https://widgetcontact.myfindata.com";
+  const endpointURL = "http://localhost:8000";
   const widgetDiv = document.querySelector('div[class^="clicflo-widget-"]');
   const uuid = widgetDiv.className.split("clicflo-widget-")[1];
   const cardHolder = document.createElement("div");
@@ -103,10 +103,35 @@
         : item.price.currency
       : "";
 
+    const backgroundStyle = item.image_settings?.is_background
+      ? `background-image: url('${item.picture}'); background-size: ${
+          item.image_settings.fit || "cover"
+        }; background-position: ${item.image_settings.alignment || "center"};`
+      : "";
+    const imageAlignmentStyle = item.image_settings?.alignment
+      ? `display: block; margin: auto; object-position: ${item.image_settings.alignment.toLowerCase()};`
+      : "display: block; margin: auto; object-position: center;";
+
+    let imageSizeClass = "";
+    let imageInlineStyle = "";
+
+    if (item.image_settings?.size === "LARGE") {
+      imageSizeClass = "h-40 w-full";
+    } else if (item.image_settings?.size === "SMALL") {
+      imageSizeClass = "h-32 w-32";
+    } else if (item.image_settings?.size === "MEDIUM") {
+      imageSizeClass = "h-40 w-48";
+    } else if (
+      item.image_settings?.size === "CUSTOM" &&
+      item.image_settings?.custom_size
+    ) {
+      imageInlineStyle = `height: ${item.image_settings.custom_size.height}px; width: ${item.image_settings.custom_size.width}px;`;
+    }
+
     return `
         <div class="max-w-64 mx-auto bg-white border border-gray-200 rounded-lg shadow overflow-hidden relative ${
           item.featured_column ? "-translate-y-5" : ""
-        }">
+        }" style="${backgroundStyle}">
           ${
             item.featured_column
               ? `
@@ -114,13 +139,13 @@
           `
               : ""
           }
-          ${
-            item.picture
-              ? `
-            <img src="${item.picture}" alt="${item.title}" class="w-72 h-40 object-cover">
+              ${
+                item.picture && !item.image_settings?.is_background
+                  ? `
+            <img src="${item.picture}" alt="${item.title}" class="${imageSizeClass} ${imageAlignmentStyle} object-cover" style="${imageInlineStyle} ${imageAlignmentStyle}">
           `
-              : ""
-          }
+                  : ""
+              }
           <div class="p-6">
                ${
                  item.title
