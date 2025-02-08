@@ -19,6 +19,7 @@ from widget.models import (
     EmailNotification,
     Footer,
     FormBuilderLayout,
+    FormBuilderPages,
     FormTemplate,
     Gradient,
     Header,
@@ -27,6 +28,9 @@ from widget.models import (
     ImageUpload,
     LabelStyle,
     Link,
+    Mode,
+    Navigation,
+    Position,
     PreFill,
     PricingCustomPictureSize,
     PricingWidgetImageSettings,
@@ -170,9 +174,23 @@ class BackgroundSerializers(serializers.ModelSerializer):
         ]
 
 
+class ModeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Mode
+        fields = ["type", "enum"]
+
+
+class PositionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Position
+        fields = ["type", "enum"]
+
+
 class DisplaySettingsSerializer(serializers.ModelSerializer):
+    mode = ModeSerializer(required=False)
     button_style = ButtonStyleSerializers(required=False)
     background = BackgroundSerializers(required=False)
+    position = PositionSerializer(required=False)
 
     class Meta:
         model = DisplaySettings
@@ -244,7 +262,7 @@ class HoverColorsSerializer(serializers.ModelSerializer):
 
 
 class ButtonColorsSerializer(serializers.ModelSerializer):
-    hover = HoverColorsSerializer()
+    hover = HoverColorsSerializer(required=False)
 
     class Meta:
         model = ButtonColors
@@ -294,10 +312,31 @@ class ImageUploadSerializer(serializers.ModelSerializer):
         fields = ["image"]
 
 
+class FormBuilderPagesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FormBuilderPages
+        fields = ["id", "title", "description", "field_ids", "order"]
+
+
+class NavigationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Navigation
+        fields = [
+            "next_button_text",
+            "back_button_text",
+            "submit_button_text",
+            "show_progress_bar",
+            "show_page_numbers",
+        ]
+
+
 class FormBuilderLayoutSerializer(serializers.ModelSerializer):
+    pages = FormBuilderPagesSerializer(many=True, required=False)
+    navigation = NavigationSerializer(required=False)
+
     class Meta:
         model = FormBuilderLayout
-        fields = ["type", "columns"]
+        fields = ["type", "pages", "columns", "navigation"]
 
 
 class WidgetSerializer(serializers.ModelSerializer):
@@ -313,7 +352,7 @@ class WidgetSerializer(serializers.ModelSerializer):
     user_brand_info = UserBrandInfoSerializer()
     script_url = serializers.SerializerMethodField()
     display_settings = DisplaySettingsSerializer()
-    submit_button = SubmitButtonSerializer()
+    submit_button = SubmitButtonSerializer(required=False)
     theme = ThemeSerializer()
     footer = FooterSerializer()
     title_style = TitleStyleSerializer(required=False)
@@ -357,6 +396,7 @@ class WidgetSerializer(serializers.ModelSerializer):
             "default_language",
             "footer",
             "custom_js",
+            "custom_css",
             "total_submissions",
         ]
         read_only_fields = [
@@ -412,7 +452,27 @@ class WidgetSerializer(serializers.ModelSerializer):
         layout_data = validated_data.pop("layout", None)
 
         if layout_data:
-            layout = FormBuilderLayout.objects.create(**layout_data)
+            pages_data = layout_data.pop("pages", [])
+            navigation_data = layout_data.pop("navigation", None)
+
+            navigation = (
+                Navigation.objects.create(**navigation_data)
+                if navigation_data
+                else None
+            )
+
+            layout = FormBuilderLayout.objects.create(
+                type=layout_data.get("type"),
+                columns=layout_data.get("columns"),
+                navigation=navigation,
+            )
+
+            if pages_data:
+                pages = FormBuilderPages.objects.bulk_create(
+                    [FormBuilderPages(**page_data) for page_data in pages_data]
+                )
+                layout.pages.add(*pages)
+
             validated_data["layout"] = layout
 
         if theme_data:
@@ -493,12 +553,11 @@ class WidgetSerializer(serializers.ModelSerializer):
 
             if background_data:
                 image_settings_data = background_data.pop("image_settings", None)
-
-                if image_settings_data:
-                    image_settings = ImageSettings.objects.create(**image_settings_data)
-                else:
-                    image_settings = None
-
+                image_settings = (
+                    ImageSettings.objects.create(**image_settings_data)
+                    if image_settings_data
+                    else None
+                )
                 background = Background.objects.create(
                     image_settings=image_settings, **background_data
                 )
@@ -506,16 +565,26 @@ class WidgetSerializer(serializers.ModelSerializer):
                 background = None
 
             button_style_data = display_settings_data.pop("button_style", None)
+            button_style = (
+                ButtonStyle.objects.create(**button_style_data)
+                if button_style_data
+                else None
+            )
 
-            if button_style_data:
-                button_style = ButtonStyle.objects.create(**button_style_data)
-            else:
-                button_style = None
+            mode_data = display_settings_data.pop("mode", None)
+            mode = Mode.objects.create(**mode_data) if mode_data else None
+
+            position_data = display_settings_data.pop("position", None)
+            position = (
+                Position.objects.create(**position_data) if position_data else None
+            )
 
             display_settings = DisplaySettings.objects.create(
                 **display_settings_data,
                 button_style=button_style,
                 background=background,
+                mode=mode,
+                position=position,
             )
             validated_data["display_settings"] = display_settings
 
@@ -553,12 +622,72 @@ class WidgetSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
 
         if layout_data:
+            pages_data = layout_data.pop("pages", None)
+            navigation_data = layout_data.pop("navigation", None)
+
             if instance.layout:
                 for attr, value in layout_data.items():
                     setattr(instance.layout, attr, value)
+
+                if navigation_data:
+                    if instance.layout.navigation:
+                        for attr, value in navigation_data.items():
+                            setattr(instance.layout.navigation, attr, value)
+                        instance.layout.navigation.save()
+                    else:
+                        instance.layout.navigation = Navigation.objects.create(
+                            **navigation_data
+                        )
+
+                if pages_data is not None:
+                    existing_pages = {
+                        page.unique_id: page for page in instance.layout.pages.all()
+                    }
+                    new_pages = []
+
+                    for page_data in pages_data:
+                        page_id = page_data.get("unique_id")
+                        field_ids = page_data.pop("field_ids", [])
+
+                        if page_id in existing_pages:
+                            page = existing_pages[page_id]
+                            for attr, value in page_data.items():
+                                setattr(page, attr, value)
+                            page.field_ids = field_ids
+                            page.save()
+                        else:
+                            new_page = FormBuilderPages.objects.create(
+                                **page_data, field_ids=field_ids
+                            )
+                            new_pages.append(new_page)
+
+                    if new_pages:
+                        instance.layout.pages.add(*new_pages)
+
                 instance.layout.save()
             else:
-                layout = FormBuilderLayout.objects.create(**layout_data)
+                navigation = (
+                    Navigation.objects.create(**navigation_data)
+                    if navigation_data
+                    else None
+                )
+                layout = FormBuilderLayout.objects.create(
+                    type=layout_data.get("type"),
+                    columns=layout_data.get("columns"),
+                    navigation=navigation,
+                )
+
+                if pages_data:
+                    pages = []
+                    for page_data in pages_data:
+                        field_ids = page_data.pop("field_ids", [])
+                        new_page = FormBuilderPages.objects.create(
+                            **page_data, field_ids=field_ids
+                        )
+                        pages.append(new_page)
+
+                    layout.pages.add(*pages)
+
                 instance.layout = layout
 
         if theme_data:
@@ -752,6 +881,10 @@ class WidgetSerializer(serializers.ModelSerializer):
 
         if display_settings_data:
             button_style_data = display_settings_data.pop("button_style", None)
+            mode_data = display_settings_data.pop("mode", None)
+            position_data = display_settings_data.pop("position", None)
+            background_data = display_settings_data.pop("background", None)
+
             if button_style_data:
                 if instance.display_settings and instance.display_settings.button_style:
                     button_style = instance.display_settings.button_style
@@ -763,7 +896,6 @@ class WidgetSerializer(serializers.ModelSerializer):
             else:
                 button_style = None
 
-            background_data = display_settings_data.pop("background", None)
             if background_data:
                 image_settings_data = background_data.pop("image_settings", None)
 
@@ -799,18 +931,45 @@ class WidgetSerializer(serializers.ModelSerializer):
             else:
                 background = None
 
+            if mode_data:
+                if instance.display_settings and instance.display_settings.mode:
+                    mode = instance.display_settings.mode
+                    for attr, value in mode_data.items():
+                        setattr(mode, attr, value)
+                    mode.save()
+                else:
+                    mode = Mode.objects.create(**mode_data)
+            else:
+                mode = None
+
+            if position_data:
+                if instance.display_settings and instance.display_settings.position:
+                    position = instance.display_settings.position
+                    for attr, value in position_data.items():
+                        setattr(position, attr, value)
+                    position.save()
+                else:
+                    position = Position.objects.create(**position_data)
+            else:
+                position = None
+
             if instance.display_settings:
                 display_settings = instance.display_settings
                 for attr, value in display_settings_data.items():
                     setattr(display_settings, attr, value)
+
                 display_settings.button_style = button_style
                 display_settings.background = background
+                display_settings.mode = mode
+                display_settings.position = position
                 display_settings.save()
             else:
                 display_settings = DisplaySettings.objects.create(
                     **display_settings_data,
                     button_style=button_style,
                     background=background,
+                    mode=mode,
+                    position=position,
                 )
             instance.display_settings = display_settings
 

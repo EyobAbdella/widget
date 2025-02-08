@@ -11,8 +11,6 @@ from django.core.exceptions import ValidationError
 from zoneinfo import available_timezones
 from uuid import uuid4
 from widget.validators import validate_time_ranges
-from babel import Locale
-from babel.localedata import locale_identifiers
 import re
 
 
@@ -66,7 +64,7 @@ class ButtonStyle(models.Model):
     padding = models.CharField(max_length=50, blank=True, null=True)
     font_size = models.CharField(max_length=50, blank=True, null=True)
     hover_background_color = models.CharField(max_length=10, blank=True, null=True)
-    icon = models.ImageField(upload_to="icon", null=True, blank=True)
+    icon = models.TextField(null=True, blank=True)
 
 
 class ImageSettings(models.Model):
@@ -109,6 +107,16 @@ class LabelStyle(models.Model):
     )
 
 
+class Mode(models.Model):
+    type = models.CharField(max_length=255, null=True, blank=True)
+    enum = models.JSONField(default=list, null=True, blank=True)
+
+
+class Position(models.Model):
+    type = models.CharField(max_length=255, null=True, blank=True)
+    enum = models.JSONField(default=list, null=True, blank=True)
+
+
 class DisplaySettings(models.Model):
     MODE_CHOICES = [
         ("Inline", "Inline"),
@@ -135,12 +143,14 @@ class DisplaySettings(models.Model):
         ("center", "Center"),
     ]
 
-    mode = models.CharField(max_length=10, choices=MODE_CHOICES, null=True, blank=True)
+    mode = models.OneToOneField(
+        Mode, on_delete=models.SET_NULL, choices=MODE_CHOICES, null=True
+    )
     trigger = models.CharField(
         max_length=10, choices=TRIGGER_CHOICES, null=True, blank=True
     )
-    position = models.CharField(
-        max_length=5, choices=POSITION_CHOICES, null=True, blank=True
+    position = models.OneToOneField(
+        Position, on_delete=models.SET_NULL, choices=MODE_CHOICES, null=True
     )
     button_text = models.CharField(max_length=100, null=True, blank=True)
     button_style = models.OneToOneField(ButtonStyle, on_delete=models.CASCADE)
@@ -242,8 +252,12 @@ class SubmitButton(models.Model):
     alignment = models.CharField(default=LEFT, max_length=6, choices=ALIGNMENT_CHOICES)
     size = models.CharField(max_length=10)
     full_width = models.BooleanField(default=False)
-    spacing = models.OneToOneField(ButtonSpacing, on_delete=models.SET_NULL, null=True)
-    colors = models.OneToOneField(ButtonColors, on_delete=models.SET_NULL, null=True)
+    spacing = models.OneToOneField(
+        ButtonSpacing, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    colors = models.OneToOneField(
+        ButtonColors, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
 
 class ImageUpload(models.Model):
@@ -271,9 +285,28 @@ class Header(models.Model):
     )
 
 
+class FormBuilderPages(models.Model):
+    unique_id = models.BigAutoField(primary_key=True)
+    id = models.CharField(max_length=255, null=True, blank=True)
+    title = models.CharField(max_length=255, null=True, blank=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    field_ids = models.JSONField(default=list, null=True, blank=True)
+    order = models.IntegerField(null=True, blank=True)
+
+
+class Navigation(models.Model):
+    next_button_text = models.CharField(max_length=255, null=True, blank=True)
+    back_button_text = models.CharField(max_length=255, null=True, blank=True)
+    submit_button_text = models.CharField(max_length=255, null=True, blank=True)
+    show_progress_bar = models.BooleanField(null=True, blank=True)
+    show_page_numbers = models.BooleanField(null=True, blank=True)
+
+
 class FormBuilderLayout(models.Model):
     type = models.CharField(max_length=255, null=True, blank=True)
     columns = models.CharField(max_length=255, null=True, blank=True)
+    pages = models.ManyToManyField(FormBuilderPages)
+    navigation = models.OneToOneField(Navigation, on_delete=models.SET_NULL, null=True)
 
 
 class WidgetData(models.Model):
@@ -336,6 +369,7 @@ class WidgetData(models.Model):
     default_language = models.CharField(max_length=100)
     footer = models.OneToOneField(Footer, on_delete=models.SET_NULL, null=True)
     custom_js = models.TextField(null=True, blank=True)
+    custom_css = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
