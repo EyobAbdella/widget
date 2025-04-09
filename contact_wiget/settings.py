@@ -1,7 +1,8 @@
-from pathlib import Path
-from dotenv import load_dotenv
-from datetime import timedelta
 import os
+from datetime import timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 dotenv_path = "/django-workspace/contact-widget-backend/.env"
 load_dotenv(dotenv_path)
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "djoser",
+    "drf_yasg",
     # Project Apps
     "widget",
     "core",
